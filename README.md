@@ -146,7 +146,7 @@ src/data/          fictional demo data (Bogotá and Mexico City)
 cli/scout.js       connectors, CSV import, merge and rank from the terminal (args.js: shared parser)
 agent/             Claude agent: tools, loop, system prompt, CLI
 demo/              the web app (GitHub Pages): app.js, i18n.js (ES/EN texts), self-hosted fonts
-tests/             118 tests: core, connectors against API-shaped fixtures, CLI,
+tests/             119 tests: core, connectors against API-shaped fixtures, CLI,
                    agent loop with a scripted model, demo security guards
 docs/              screenshots and the offline playbook
 ```
@@ -191,7 +191,7 @@ npm run agent -- --dry-run --db data/all.json --category packaging --qty 500 --l
 
 Being explicit, because this matters more than the feature list:
 
-- **Tested (118 automated tests in CI):** all core logic; the connectors against fictional fixtures shaped like each API's documented responses; the CLI end to end; the agent loop against a scripted stand-in for the Claude API (tool calls, parallel results, errors, refusals, step limit, append-only history, no invented suppliers, no phones sent to the model); the demo's CSP and rendering guards; speed at the import limits. The web app was checked in Chromium on desktop and on a 375 px phone viewport.
+- **Tested (119 automated tests in CI):** all core logic; the connectors against fictional fixtures shaped like each API's documented responses; the CLI end to end; the agent loop against a scripted stand-in for the Claude API (tool calls, parallel results, errors, refusals, step limit, append-only history, no invented suppliers, no phones sent to the model); the demo's CSP and rendering guards; speed at the import limits. The web app was checked in Chromium on desktop and on a 375 px phone viewport.
 - **Not yet run against the live services:** the development environment could not reach OpenStreetMap, datos.gov.co, Google or the Claude API. The request formats follow each service's documentation, but the first real run may need small adjustments. The SECOP connector reads the dataset's columns at run time (`--describe` shows the mapping) precisely because I could not verify their names.
 - **Known limits:** GitHub Pages cannot send security headers, so the CSP is a `<meta>` tag and cannot forbid framing (the page has no sensitive actions to hijack); distance is a straight line, not travel time; tax rates are editable defaults and import duties are not included; the capture parser handles common formats and anything unusual needs a manual fix, which is why every capture goes to review.
 
