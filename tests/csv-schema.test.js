@@ -99,3 +99,14 @@ test('ids that match JavaScript object keys are kept as they are', () => {
   assert.deepEqual(db.suppliers.map((x) => x.id), ['constructor', 'toString']);
   assert.equal(db.quotes.length, 0, 'a quote for a supplier that does not exist is dropped');
 });
+
+test('column names are recognised in Portuguese, French and regional Spanish', () => {
+  const Csv = require('../src/core/csv');
+  const pt = Csv.mapColumns(['Nome Fantasia', 'CNPJ', 'Fone', 'Logradouro', 'Cidade', 'UF', 'CNAE']).mapping;
+  assert.deepEqual(pt, { name: 0, taxId: 1, phone: 2, address: 3, city: 4, region: 5, category: 6 });
+  const fr = Csv.mapColumns(['Raison sociale', 'SIRET', 'Téléphone', 'Courriel', 'Adresse', 'Ville', 'Code NAF']).mapping;
+  assert.deepEqual(fr, { name: 0, taxId: 1, phone: 2, email: 3, address: 4, city: 5, category: 6 });
+  const doCsv = 'Nombre comercial;RNC;Teléfono;Giro\nColmado Demo;199900014;809-555-0123;colmado\n';
+  const s = Csv.importSuppliers(doCsv, { country: 'DO' }).suppliers[0];
+  assert.deepEqual([s.name, s.taxId.valid, s.phones[0], s.categories[0]], ['Colmado Demo', true, '+18095550123', 'food']);
+});

@@ -67,11 +67,11 @@ function short(text, max) {
 function createToolbox(options) {
   const db = options.db;
   const country = options.country || db.country || 'CO';
-  const lang = options.lang === 'en' ? 'en' : 'es';
+  const profile = Countries.getProfile(country);
+  const lang = Messages.pickLanguage(options.lang || profile.language);
   const env = options.env || process.env;
   const fetchImpl = options.fetchImpl;
   const today = options.today || new Date().toISOString().slice(0, 10);
-  const profile = Countries.getProfile(country);
   const found = new Map();
   const drafts = [];
   let ranking = null;
@@ -271,7 +271,7 @@ function createToolbox(options) {
         (input.supplier_ids || []).slice(0, 10).forEach((id) => {
           const s = byId.get(id);
           if (!s || !shareable(s)) { unknown.push(short(id, 60)); return; }
-          const text = Outreach.rfqMessage(need, s.name, lang);
+          const text = Outreach.rfqMessage(need, s.name, lang, country);
           drafts.push({
             kind: 'quote_request', supplierId: s.id, supplierName: s.name, text,
             whatsapp: s.phones && s.phones[0] ? Outreach.whatsappLink(s.phones[0], text) : null,

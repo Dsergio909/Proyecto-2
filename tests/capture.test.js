@@ -75,7 +75,7 @@ test('an invalid check digit is flagged, not silently accepted', () => {
 });
 
 test('the tax ID label can reveal a foreign supplier', () => {
-  const r = parseCapture('Proveedor Andino\nRUC 20131312955', { country: 'CO' });
+  const r = parseCapture('Proveedor Andino\nRUC 20999000101', { country: 'CO' });
   assert.equal(r.draft.taxId.country, 'PE');
   assert.equal(r.draft.taxId.valid, true);
 });
@@ -128,4 +128,110 @@ test('hostile or huge input is processed quickly (no catastrophic regex backtrac
 
 test('removing an amount never cuts a phone that contains the same digits', () => {
   assert.deepEqual(parseCapture('Tornillo a 20 c/u, llama al 999 000 1220 hoy', { country: 'CO' }).draft.phones, ['+579990001220']);
+});
+
+// ---------- Latin America, Brazil and France: how suppliers actually write ----------
+// All names, IDs and numbers are fictional (valid check digits, zero-filled phones, .example domains).
+
+const REGIONAL = {
+  MX: ['Tlapalería El Tornillo Feliz', 'RFC TTF990101AB1', 'Pijas c/100 $85 más IVA', 'Cel 044 55 0000 0301',
+    'ventas@tornillofeliz.example', 'Entrega en 2 días, Guadalajara'].join('\n'),
+  DO: ['Colmado y Ferretería Don Chepe', 'RNC 199900014', 'Del colmado 200 metros al norte, Santiago',
+    'Saco de cemento RD$ 450 con ITBIS', 'Quintal de arroz RD$ 2.800', 'Tel 809-555-0123'].join('\n'),
+  BR: ['Ferragens Boa Vista Ltda', 'CNPJ 12.ABC.999/0001-01', 'Parafusos caixa c/ 100 R$ 45,90', 'Entrega em 2 dias, frete grátis',
+    'WhatsApp (11) 90000-0401', 'contato@boavista.example', 'Rua das Flores, 120 - São Paulo'].join('\n'),
+  EC: ['Distribuidora Andina de Empaques', 'RUC 1799900013001', 'Caja x 25 $ 18,50 incluye IVA', 'Cel 099 000 0601', 'Quito'].join('\n'),
+  CL: ['Gasfitería Don Lucho', 'RUT 12.345.678-5', 'Arroba de clavos $ 25.000', 'Despacho en 3 días', 'Fono +56 9 0000 0501', 'Santiago'].join('\n'),
+  FR: ['Quincaillerie Martin', 'SIRET 999 000 128 00010', 'Vis à bois, boîte de 100 : 12,50 € HT', 'Livraison sous 3 jours',
+    'Tél. 06 39 98 00 01', 'contact@quincaillerie-martin.example', '12 rue des Lilas, Lyon'].join('\n'),
+  CR: ['Taller de Soldadura Los Ticos', 'Cédula jurídica 3-101-999000', 'De la iglesia 100 varas al sur, San José', '₡ 25.000 por metro', 'Tel 2000-0601'].join('\n')
+};
+
+test('Mexico: "tlapalería", "pijas c/100", the old 044 mobile prefix, "más IVA"', () => {
+  const d = parseCapture(REGIONAL.MX, { country: 'MX' }).draft;
+  assert.deepEqual(d.categories, ['hardware']);
+  assert.deepEqual(d.phones, ['+525500000301']);
+  assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].per], ['Pijas', 85, 'MXN', { qty: 100, unit: 'unidad' }]);
+  assert.equal(d.prices[0].taxIncluded, false);
+  assert.equal(d.leadDays, 2);
+});
+
+test('Dominican Republic: RNC, RD$, ITBIS, a quintal and an address given by landmark', () => {
+  const r = parseCapture(REGIONAL.DO, { country: 'DO' });
+  const d = r.draft;
+  assert.deepEqual([d.taxId.label, d.taxId.valid], ['RNC', true]);
+  assert.equal(d.address, 'Del colmado 200 metros al norte, Santiago');
+  assert.deepEqual(d.phones, ['+18095550123']);
+  assert.deepEqual(d.prices.map((p) => [p.price, p.currency, p.per.unit, p.taxIncluded]), [[450, 'DOP', 'unidad', true], [2800, 'DOP', 'quintal', null]]);
+});
+
+test('Brazil: alphanumeric CNPJ, R$ with decimal comma, "frete grátis" means free delivery', () => {
+  const d = parseCapture(REGIONAL.BR, { country: 'BR' }).draft;
+  assert.deepEqual([d.taxId.value, d.taxId.valid], ['12ABC999000101', true]);
+  assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].per.qty], ['Parafusos', 45.9, 'BRL', 100]);
+  assert.deepEqual([d.shipping, d.ships, d.leadDays], [0, true, 2]);
+  assert.deepEqual(d.phones, ['+5511900000401']);
+  assert.equal(d.address, 'Rua das Flores, 120 - São Paulo');
+  assert.deepEqual(d.categories, ['hardware']);
+});
+
+test('Ecuador: a dollarised price and a company RUC with its check digit', () => {
+  const d = parseCapture(REGIONAL.EC, { country: 'EC' }).draft;
+  assert.deepEqual([d.taxId.country, d.taxId.valid], ['EC', true]);
+  assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].taxIncluded], ['Caja x 25', 18.5, 'USD', true]);
+  assert.deepEqual(d.phones, ['+593990000601']);
+});
+
+test('Chile: "gasfitería", "arroba", "despacho" and "fono"', () => {
+  const d = parseCapture(REGIONAL.CL, { country: 'CL' }).draft;
+  assert.ok(d.categories.includes('maintenance'));
+  assert.deepEqual([d.prices[0].item, d.prices[0].per.unit], ['clavos', 'arroba']);
+  assert.equal(d.leadDays, 3);
+  assert.deepEqual(d.phones, ['+56900000501']);
+});
+
+test('France: SIRET written in groups, "12 rue...", prices "HT"', () => {
+  const r = parseCapture(REGIONAL.FR, { country: 'FR' });
+  const d = r.draft;
+  assert.deepEqual([d.taxId.label, d.taxId.value, d.taxId.valid], ['SIRET', '99900012800010', true]);
+  assert.equal(d.address, '12 rue des Lilas, Lyon');
+  assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].taxIncluded], ['Vis à bois', 12.5, 'EUR', false]);
+  assert.deepEqual(d.phones, ['+33639980001']);
+  assert.equal(d.leadDays, 3);
+  assert.ok(!r.warnings.some((w) => w.code === 'phone_unparsed'), 'the SIRET digits are not a phone');
+});
+
+test('Costa Rica: cédula jurídica, colones and "100 varas al sur"', () => {
+  const d = parseCapture(REGIONAL.CR, { country: 'CR' }).draft;
+  assert.deepEqual([d.taxId.country, d.taxId.checked], ['CR', 'format']);
+  assert.equal(d.address, 'De la iglesia 100 varas al sur, San José');
+  assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].per.unit], [null, 25000, 'CRC', 'metro']);
+});
+
+test('a WhatsApp paragraph from Peru: soles, "+ IGV", the product after "vendemos"', () => {
+  const text = 'Hola, somos Maderas San Martín, vendemos tablas de pino a S/ 35 la unidad + IGV, pedido mínimo 20 unidades. Llámanos al 999 000 601. Entregamos en Lima en 2 días.';
+  const d = parseCapture(text, { country: 'PE' }).draft;
+  assert.equal(d.name, 'Maderas San Martín');
+  assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].taxIncluded], ['tablas de pino', 35, 'PEN', false]);
+  assert.deepEqual(d.minOrder, { qty: 20, unit: 'unidades', resolved: true });
+  assert.deepEqual([d.ships, d.leadDays], [true, 2]);
+  assert.deepEqual(d.categories, ['furniture']);
+});
+
+test('currency symbols across the region', () => {
+  const text = ['Cemento RD$ 450', 'Block Q 5.50 c/u', 'Varilla ₡ 3.500', 'Yerba Gs. 25.000', 'Pintura S/ 45', 'Tornillos $U 250',
+    'Café 12,50 €', 'Pão 3,50 reais', 'Arena 2 palos', 'Tela 15 lucas el metro'].join('\n');
+  const prices = parseCapture(text, { country: 'CO' }).draft.prices;
+  assert.deepEqual(prices.map((p) => [p.item, p.price, p.currency]), [
+    ['Cemento', 450, 'DOP'], ['Block', 5.5, 'GTQ'], ['Varilla', 3500, 'CRC'], ['Yerba', 25000, 'PYG'], ['Pintura', 45, 'PEN'],
+    ['Tornillos', 250, 'UYU'], ['Café', 12.5, 'EUR'], ['Pão', 3.5, 'BRL'], ['Arena', 2000000, 'COP'], ['Tela', 15000, 'COP']
+  ]);
+});
+
+test('"Bs" is local in Bolivia and Venezuela, and flagged anywhere else', () => {
+  assert.equal(parseCapture('Harina Bs. 120', { country: 'BO' }).draft.prices[0].currency, 'BOB');
+  assert.equal(parseCapture('Harina Bs. 120', { country: 'VE' }).draft.prices[0].currency, 'VES');
+  const r = parseCapture('Harina Bs. 120', { country: 'CO' });
+  assert.ok(r.warnings.some((w) => w.code === 'currency_ambiguous' && w.options === 'VES / BOB'));
+  assert.equal(r.draft.prices[0].currencyGuess, undefined, 'internal field is not leaked into the draft');
 });

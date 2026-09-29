@@ -22,15 +22,19 @@
   var MAX_ROWS = 5000;
 
   var SYNONYMS = {
-    name: ['nombre', 'razon social', 'nombre o razon social', 'name', 'company', 'company name', 'business name', 'empresa', 'proveedor', 'nome', 'razao social', 'display name'],
-    taxId: ['nit', 'rut', 'ruc', 'cuit', 'rfc', 'cnpj', 'nif', 'cif', 'ein', 'tax id', 'vat', 'identificacion', 'numero de identificacion', 'documento', 'numero documento', 'nro documento'],
-    phone: ['telefono', 'telefonos', 'celular', 'movil', 'whatsapp', 'phone', 'tel', 'telefone', 'telefono de contacto', 'contact phone'],
-    email: ['correo', 'correo electronico', 'email', 'e mail', 'mail', 'correo de contacto'],
-    website: ['web', 'sitio web', 'pagina web', 'website', 'url', 'site', 'pagina'],
-    address: ['direccion', 'address', 'endereco', 'domicilio', 'direccion comercial'],
-    city: ['ciudad', 'municipio', 'city', 'cidade', 'localidad', 'comuna', 'distrito'],
-    region: ['departamento', 'estado', 'provincia', 'region', 'state'],
-    category: ['categoria', 'categorias', 'actividad', 'actividad economica', 'sector', 'rubro', 'category', 'descripcion actividad', 'codigo categoria principal', 'ciiu'],
+    name: ['nombre', 'razon social', 'nombre o razon social', 'nombre comercial', 'name', 'company', 'company name', 'business name',
+      'empresa', 'proveedor', 'nome', 'razao social', 'nome fantasia', 'fornecedor', 'raison sociale', 'nom', 'entreprise', 'fournisseur', 'display name'],
+    taxId: ['nit', 'rut', 'ruc', 'cuit', 'rfc', 'rif', 'rtn', 'rnc', 'nrc', 'cnpj', 'nif', 'nipc', 'cif', 'siren', 'siret', 'ein', 'tax id', 'vat',
+      'cedula juridica', 'identificacion', 'identificacion tributaria', 'numero de identificacion', 'documento', 'numero documento', 'nro documento'],
+    phone: ['telefono', 'telefonos', 'celular', 'movil', 'whatsapp', 'phone', 'tel', 'telefone', 'fone', 'telephone', 'portable',
+      'telefono de contacto', 'contact phone'],
+    email: ['correo', 'correo electronico', 'email', 'e mail', 'mail', 'correo de contacto', 'courriel'],
+    website: ['web', 'sitio web', 'pagina web', 'website', 'url', 'site', 'pagina', 'site web'],
+    address: ['direccion', 'address', 'endereco', 'domicilio', 'direccion comercial', 'logradouro', 'adresse'],
+    city: ['ciudad', 'municipio', 'city', 'cidade', 'localidad', 'comuna', 'distrito', 'canton', 'ville', 'commune'],
+    region: ['departamento', 'estado', 'provincia', 'region', 'state', 'uf'],
+    category: ['categoria', 'categorias', 'actividad', 'actividad economica', 'giro', 'giro comercial', 'sector', 'rubro', 'category',
+      'descripcion actividad', 'codigo categoria principal', 'ciiu', 'cnae', 'atividade', 'atividade economica', 'activite', 'code naf', 'naf'],
     lat: ['lat', 'latitud', 'latitude'],
     lng: ['lng', 'lon', 'long', 'longitud', 'longitude'],
     notes: ['notas', 'observaciones', 'notes', 'comentarios']

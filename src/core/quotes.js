@@ -21,33 +21,43 @@
   var Countries = isNode ? require('./countries') : root.ScoutCountries;
   var Text = isNode ? require('./text') : root.ScoutText;
 
-  // Unit aliases -> [base unit, factor]. Base units: unit, kg, m, l.
+  // Unit aliases (accents removed) -> [base unit, factor]. Base units: unit, kg, m, l.
+  // Spanish, Portuguese, French and English, plus trade units common in Latin America.
   var UNITS = {
     unit: ['unit', 1], unidad: ['unit', 1], unidades: ['unit', 1], und: ['unit', 1], un: ['unit', 1], u: ['unit', 1],
     cu: ['unit', 1], pieza: ['unit', 1], piezas: ['unit', 1], pza: ['unit', 1], each: ['unit', 1], ea: ['unit', 1], pc: ['unit', 1],
-    par: ['unit', 2], pares: ['unit', 2], pair: ['unit', 2],
-    docena: ['unit', 12], docenas: ['unit', 12], dozen: ['unit', 12],
-    ciento: ['unit', 100], cientos: ['unit', 100],
-    millar: ['unit', 1000], millares: ['unit', 1000],
-    resma: ['unit', 500], resmas: ['unit', 500],
-    kg: ['kg', 1], kilo: ['kg', 1], kilos: ['kg', 1], kilogramo: ['kg', 1], kilogramos: ['kg', 1],
-    g: ['kg', 0.001], gr: ['kg', 0.001], gramo: ['kg', 0.001], gramos: ['kg', 0.001],
-    t: ['kg', 1000], ton: ['kg', 1000], tonelada: ['kg', 1000], toneladas: ['kg', 1000],
-    m: ['m', 1], metro: ['m', 1], metros: ['m', 1], mt: ['m', 1], mts: ['m', 1], cm: ['m', 0.01],
-    l: ['l', 1], lt: ['l', 1], litro: ['l', 1], litros: ['l', 1], ml: ['l', 0.001],
-    galon: ['l', 3.785], galones: ['l', 3.785], gal: ['l', 3.785]
+    unidade: ['unit', 1], peca: ['unit', 1], pecas: ['unit', 1], unite: ['unit', 1], unites: ['unit', 1], piece: ['unit', 1], pieces: ['unit', 1],
+    par: ['unit', 2], pares: ['unit', 2], pair: ['unit', 2], paire: ['unit', 2],
+    docena: ['unit', 12], docenas: ['unit', 12], dozen: ['unit', 12], duzia: ['unit', 12], duzias: ['unit', 12], douzaine: ['unit', 12],
+    ciento: ['unit', 100], cientos: ['unit', 100], cento: ['unit', 100], centaine: ['unit', 100],
+    millar: ['unit', 1000], millares: ['unit', 1000], milheiro: ['unit', 1000],
+    resma: ['unit', 500], resmas: ['unit', 500], rame: ['unit', 500],
+    kg: ['kg', 1], kilo: ['kg', 1], kilos: ['kg', 1], kilogramo: ['kg', 1], kilogramos: ['kg', 1], quilo: ['kg', 1], quilos: ['kg', 1],
+    g: ['kg', 0.001], gr: ['kg', 0.001], gramo: ['kg', 0.001], gramos: ['kg', 0.001], grama: ['kg', 0.001], gramas: ['kg', 0.001],
+    t: ['kg', 1000], ton: ['kg', 1000], tonelada: ['kg', 1000], toneladas: ['kg', 1000], tonne: ['kg', 1000],
+    m: ['m', 1], metro: ['m', 1], metros: ['m', 1], mt: ['m', 1], mts: ['m', 1], metre: ['m', 1], metres: ['m', 1], cm: ['m', 0.01],
+    yarda: ['m', 0.9144], yardas: ['m', 0.9144], yd: ['m', 0.9144], yard: ['m', 0.9144],
+    pie: ['m', 0.3048], pies: ['m', 0.3048], ft: ['m', 0.3048], pulgada: ['m', 0.0254], pulgadas: ['m', 0.0254],
+    l: ['l', 1], lt: ['l', 1], litro: ['l', 1], litros: ['l', 1], litre: ['l', 1], litres: ['l', 1], ml: ['l', 0.001],
+    galon: ['l', 3.785], galones: ['l', 3.785], gal: ['l', 3.785], galao: ['l', 3.785], galoes: ['l', 3.785],
+    cunete: ['l', 18.927], cunetes: ['l', 18.927] // a "cuñete" of paint is 5 US gallons
   };
-  var POUND_ALIASES = ['lb', 'lbs', 'libra', 'libras', 'pound', 'pounds'];
+  // Weights whose size depends on the country: a Colombian "libra" is 500 g, an "arroba" is 25 libras
+  // (12.5 kg in Colombia, ~11.5 kg elsewhere, 15 kg in Brazil), a "quintal" is 100 libras.
+  var REGIONAL = {
+    lb: 'poundKg', lbs: 'poundKg', libra: 'poundKg', libras: 'poundKg', pound: 'poundKg', pounds: 'poundKg',
+    arroba: 'arrobaKg', arrobas: 'arrobaKg', quintal: 'quintalKg', quintales: 'quintalKg'
+  };
 
-  /** '100 und' / 'docena' / 'libra' -> { qty, unit } in base units, or null. */
+  /** '100 und' / 'docena' / 'libra' -> { qty, unit, regional? } in base units, or null. */
   function toBase(qty, unitWord, countryCode) {
     var word = Text.normalize(unitWord).replace(/\s+/g, '');
     var amount = qty == null ? 1 : Number(qty);
     if (!isFinite(amount) || amount <= 0) return null;
-    if (POUND_ALIASES.indexOf(word) !== -1) {
-      return { qty: amount * Countries.getProfile(countryCode).poundKg, unit: 'kg' };
+    if (Object.prototype.hasOwnProperty.call(REGIONAL, word)) {
+      return { qty: amount * Countries.getProfile(countryCode)[REGIONAL[word]], unit: 'kg', regional: true };
     }
-    var entry = UNITS[word];
+    var entry = Object.prototype.hasOwnProperty.call(UNITS, word) ? UNITS[word] : null;
     if (!entry) return null;
     return { qty: amount * entry[1], unit: entry[0] };
   }
@@ -75,13 +85,18 @@
     return Number(parts[0] + '.' + parts[1]);
   }
 
-  var MULTIPLIERS = { mil: 1e3, k: 1e3, lucas: 1e3, millon: 1e6, millones: 1e6, mm: 1e6 };
+  // "50 mil", "18.5k", "2 palos" (Colombia: a million), "20 lucas" (a thousand), "1,2 milhões", "3 millions".
+  var MULTIPLIERS = {
+    mil: 1e3, mille: 1e3, k: 1e3, luca: 1e3, lucas: 1e3, millon: 1e6, millones: 1e6, mm: 1e6,
+    palo: 1e6, palos: 1e6, milhao: 1e6, milhoes: 1e6, million: 1e6, millions: 1e6
+  };
 
   /** "18.500" / "50 mil" / "18.5k" / "1,2 millones" -> number, or NaN. */
   function parseAmount(numberText, multiplierWord) {
     var value = parseNumber(numberText);
     if (!isFinite(value)) return NaN;
-    var mult = MULTIPLIERS[Text.normalize(multiplierWord || '')] || 1;
+    var key = Text.normalize(multiplierWord || '');
+    var mult = Object.prototype.hasOwnProperty.call(MULTIPLIERS, key) ? MULTIPLIERS[key] : 1;
     return value * mult;
   }
 
@@ -117,6 +132,8 @@
         return { ok: false, warnings: [{ code: 'fx_missing', currency: currency }] };
       }
     }
+
+    if (pack.regional || wanted.regional) warnings.push({ code: 'regional_unit', unit: pack.regional ? quote.per.unit : need.unit, kg: pack.regional ? pack.qty / (Number(quote.per.qty) || 1) : wanted.qty / (Number(need.quantity) || 1) });
 
     var target = wanted.qty;
     var minOrder = quote.minOrder ? toBase(quote.minOrder.qty, quote.minOrder.unit, settings.country) : null;

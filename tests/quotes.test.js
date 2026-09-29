@@ -18,7 +18,7 @@ test('numbers in both separator conventions', () => {
 test('units convert to base units; a Colombian "libra" is 500 g', () => {
   assert.deepEqual(Q.toBase(1, 'docena'), { qty: 12, unit: 'unit' });
   assert.deepEqual(Q.toBase(500, 'g'), { qty: 0.5, unit: 'kg' });
-  assert.deepEqual(Q.toBase(1, 'libra', 'CO'), { qty: 0.5, unit: 'kg' });
+  assert.deepEqual(Q.toBase(1, 'libra', 'CO'), { qty: 0.5, unit: 'kg', regional: true });
   assert.equal(Q.toBase(1, 'libra', 'US').qty, 0.453592);
   assert.equal(Q.toBase(1, 'furlong'), null);
 });
@@ -81,4 +81,24 @@ test('the cheapest list price is often not the cheapest order', () => {
   assert.equal(result.ranked[0].cheapestTotal, true);
   assert.equal(result.ranked[1].cheapestListPrice, true);
   assert.equal(result.listPriceMisleads, true);
+});
+
+test('regional weights depend on the country and always ask for confirmation', () => {
+  assert.equal(Q.toBase(1, 'arroba', 'BR').qty, 15);
+  assert.equal(Q.toBase(1, 'arroba', 'CO').qty, 12.5);
+  assert.equal(Q.toBase(1, 'quintal', 'CO').qty, 50);
+  const c = Q.landedCost({ price: 25000, per: { qty: 1, unit: 'arroba' }, taxIncluded: true }, { quantity: 50, unit: 'kg' }, CO);
+  assert.equal(c.packs, 4);
+  assert.ok(c.warnings.some((w) => w.code === 'regional_unit' && w.unit === 'arroba' && w.kg === 12.5));
+});
+
+test('slang and foreign words for amounts and units', () => {
+  assert.equal(Q.parseAmount('2', 'palos'), 2000000);
+  assert.equal(Q.parseAmount('20', 'lucas'), 20000);
+  assert.equal(Q.parseAmount('1,5', 'milhões'), 1500000);
+  assert.equal(Q.parseAmount('3', 'mille'), 3000);
+  assert.deepEqual(Q.toBase(2, 'dúzia'), { qty: 24, unit: 'unit' });
+  assert.deepEqual(Q.toBase(1, 'douzaine'), { qty: 12, unit: 'unit' });
+  assert.deepEqual(Q.toBase(1, 'milheiro'), { qty: 1000, unit: 'unit' });
+  assert.equal(Q.toBase(1, 'cuñete').unit, 'l');
 });

@@ -12,7 +12,7 @@
  * a fixed plan with the same tools and no AI. Optional: GOOGLE_PLACES_API_KEY,
  * SOCRATA_APP_TOKEN.
  *
- * Flags: --db file.json · --out file.json · --country CO · --lang es|en ·
+ * Flags: --db file.json · --out file.json · --country CO · --lang es|en|pt|fr (default: the country's language) ·
  *        --lat/--lng · --model · --effort low|medium|high · --max-steps 12 ·
  *        --usd 3900 (exchange rate) · --rate 0.015 (monthly opportunity rate) ·
  *        dry run only: --category --qty --unit --days --radius --offline
@@ -110,7 +110,7 @@ async function main(argv, io, deps = {}) {
     return args.help ? 0 : 1;
   }
   const country = String(args.country || 'CO').toUpperCase();
-  const lang = args.lang === 'en' ? 'en' : 'es';
+  const lang = args.lang ? String(args.lang) : undefined; // the toolbox falls back to the country's language
   let sdk = null;
   try {
     const db = loadDb(args.db, country);

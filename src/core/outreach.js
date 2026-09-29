@@ -18,56 +18,113 @@
   var isNode = typeof module !== 'undefined' && module.exports;
   var Categories = isNode ? require('./categories') : root.ScoutCategories;
 
+  var Countries = isNode ? require('./countries') : root.ScoutCountries;
+
   var UNIT_LABEL = {
     es: { unidad: 'unidades', unit: 'unidades', kg: 'kg', m: 'metros', l: 'litros', docena: 'docenas' },
-    en: { unidad: 'units', unit: 'units', kg: 'kg', m: 'metres', l: 'litres', docena: 'dozen' }
+    en: { unidad: 'units', unit: 'units', kg: 'kg', m: 'metres', l: 'litres', docena: 'dozen' },
+    pt: { unidad: 'unidades', unit: 'unidades', kg: 'kg', m: 'metros', l: 'litros', docena: 'dúzias' },
+    fr: { unidad: 'unités', unit: 'unités', kg: 'kg', m: 'mètres', l: 'litres', docena: 'douzaines' }
   };
+
+  function language(lang) {
+    return UNIT_LABEL[lang] ? lang : 'en';
+  }
 
   function categoryLabel(id, lang) {
     var cat = Categories.byId(id);
-    return cat ? cat.label[lang] || cat.label.es : id;
+    return cat ? cat.label[lang] || cat.label.en : id;
   }
 
-  /** need: { category, item, quantity, unit, neededInDays, deliveryZone }. */
-  function rfqMessage(need, supplierName, lang) {
-    var l = lang === 'en' ? 'en' : 'es';
+  /** The local name of the sales tax: IVA, IGV, ITBIS, ITBMS, ISV, IVU, TVA... */
+  function taxName(country, lang) {
+    var profile = Countries.getProfile(country);
+    if (profile.code !== 'XX' && profile.vatRate > 0) return profile.vatName;
+    return { es: 'impuestos', en: 'tax', pt: 'impostos', fr: 'taxes' }[lang];
+  }
+
+  var RFQ = {
+    es: function (who, qty, what, zone, days, tax) {
+      return [
+        'Hola' + who + ', le escribe [tu nombre] de [tu empresa].',
+        'Estamos cotizando ' + qty + 'de ' + what + (zone ? ', con entrega en ' + zone : '') + (days ? ', para dentro de ' + days + ' días' : '') + '.',
+        '¿Nos podría enviar: precio unitario y presentación (caja, paquete...), si incluye ' + tax + ', costo de envío, pedido mínimo, tiempo de entrega y forma de pago?',
+        '¡Muchas gracias!'
+      ];
+    },
+    en: function (who, qty, what, zone, days, tax) {
+      return [
+        'Hello' + who + ', this is [your name] from [your company].',
+        'We are requesting quotes for ' + qty + 'of ' + what + (zone ? ', delivered to ' + zone : '') + (days ? ', needed within ' + days + ' days' : '') + '.',
+        'Could you send us: unit price and pack size, whether ' + tax + ' is included, shipping cost, minimum order, lead time and payment terms?',
+        'Thank you!'
+      ];
+    },
+    pt: function (who, qty, what, zone, days, tax) {
+      return [
+        'Olá' + who + ', aqui é [seu nome] da [sua empresa].',
+        'Estamos cotando ' + qty + 'de ' + what + (zone ? ', com entrega em ' + zone : '') + (days ? ', para daqui a ' + days + ' dias' : '') + '.',
+        'Poderia nos enviar: preço unitário e embalagem (caixa, pacote...), se inclui ' + tax + ', valor do frete, pedido mínimo, prazo de entrega e forma de pagamento?',
+        'Muito obrigado!'
+      ];
+    },
+    fr: function (who, qty, what, zone, days, tax) {
+      return [
+        'Bonjour' + who + ', je suis [votre nom] de [votre entreprise].',
+        'Nous demandons des devis pour ' + qty + 'de ' + what + (zone ? ', livraison à ' + zone : '') + (days ? ', sous ' + days + ' jours' : '') + '.',
+        'Pourriez-vous nous indiquer : prix unitaire et conditionnement (boîte, paquet...), si la ' + tax + ' est comprise, frais de livraison, commande minimum, délai de livraison et conditions de paiement ?',
+        'Merci beaucoup !'
+      ];
+    }
+  };
+
+  /**
+   * need: { category, item, quantity, unit, neededInDays, deliveryZone }.
+   * country (optional) names the local sales tax: "si incluye IGV" in Peru, "ITBIS" in the Dominican Republic.
+   */
+  function rfqMessage(need, supplierName, lang, country) {
+    var l = language(lang);
     var what = need.item || categoryLabel(need.category, l).toLowerCase();
     var unit = UNIT_LABEL[l][need.unit] || need.unit || '';
     var qty = need.quantity ? need.quantity + ' ' + unit + ' ' : '';
-    if (l === 'en') {
-      return [
-        'Hello' + (supplierName ? ' ' + supplierName : '') + ', this is [your name] from [your company].',
-        'We are requesting quotes for ' + qty + 'of ' + what + (need.deliveryZone ? ', delivered to ' + need.deliveryZone : '') +
-          (need.neededInDays ? ', needed within ' + need.neededInDays + ' days' : '') + '.',
-        'Could you send us: unit price and pack size, whether tax is included, shipping cost, minimum order, lead time and payment terms?',
-        'Thank you!'
-      ].join('\n');
-    }
-    return [
-      'Hola' + (supplierName ? ' ' + supplierName : '') + ', le escribe [tu nombre] de [tu empresa].',
-      'Estamos cotizando ' + qty + 'de ' + what + (need.deliveryZone ? ', con entrega en ' + need.deliveryZone : '') +
-        (need.neededInDays ? ', para dentro de ' + need.neededInDays + ' días' : '') + '.',
-      '¿Nos podría enviar: precio unitario y presentación (caja, paquete...), si incluye IVA, costo de envío, pedido mínimo, tiempo de entrega y forma de pago?',
-      '¡Muchas gracias!'
-    ].join('\n');
+    return RFQ[l](supplierName ? ' ' + supplierName : '', qty, what, need.deliveryZone, need.neededInDays, taxName(country, l)).join('\n');
   }
 
-  /** "Who do you buy X from?" for current suppliers and colleagues. */
-  function referralRequest(category, lang) {
-    var l = lang === 'en' ? 'en' : 'es';
-    var what = categoryLabel(category, l).toLowerCase();
-    if (l === 'en') {
+  var REFERRAL = {
+    es: function (what) {
+      return [
+        '¡Hola! Una consulta rápida: estamos buscando un proveedor confiable de ' + what + '.',
+        '¿Hay alguien a quien usted le compre o que nos recomiende, aunque no tenga página web o solo venda por teléfono o WhatsApp?',
+        'Con un nombre y un número nos ayuda muchísimo. ¡Gracias!'
+      ];
+    },
+    en: function (what) {
       return [
         'Hi! Quick question: we are looking for a reliable supplier of ' + what + '.',
         'Is there anyone you buy from, or would recommend, even if they have no website or only sell by phone or WhatsApp?',
         'A name and a phone number would be great. Thanks!'
-      ].join('\n');
+      ];
+    },
+    pt: function (what) {
+      return [
+        'Olá! Uma pergunta rápida: estamos procurando um fornecedor confiável de ' + what + '.',
+        'Tem alguém de quem você compra ou que recomendaria, mesmo que não tenha site ou só venda por telefone ou WhatsApp?',
+        'Um nome e um número já ajudam muito. Obrigado!'
+      ];
+    },
+    fr: function (what) {
+      return [
+        'Bonjour ! Petite question : nous cherchons un fournisseur fiable pour : ' + what + '.',
+        'Y a-t-il quelqu\'un chez qui vous achetez, ou que vous recommanderiez, même sans site web ou qui ne vend que par téléphone ou WhatsApp ?',
+        'Un nom et un numéro nous aideraient beaucoup. Merci !'
+      ];
     }
-    return [
-      '¡Hola! Una consulta rápida: estamos buscando un proveedor confiable de ' + what + '.',
-      '¿Hay alguien a quien le compres o que nos recomiendes, aunque no tenga página web o solo venda por teléfono o WhatsApp?',
-      'Con un nombre y un número nos sirve muchísimo. ¡Gracias!'
-    ].join('\n');
+  };
+
+  /** "Who do you buy X from?" for current suppliers and colleagues. */
+  function referralRequest(category, lang) {
+    var l = language(lang);
+    return REFERRAL[l](categoryLabel(category, l).toLowerCase()).join('\n');
   }
 
   /** wa.me link with the message pre-filled, or null without a phone. Opens WhatsApp; nothing is sent automatically. */
