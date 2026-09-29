@@ -163,3 +163,13 @@ test('currencies without cents and dollarised countries', () => {
   assert.equal(C.getProfile('PA').vatName, 'ITBMS');
   assert.equal(C.getProfile('DO').vatName, 'ITBIS');
 });
+
+test('docs/countries.md lists every country profile', () => {
+  const doc = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'docs', 'countries.md'), 'utf8');
+  for (const p of Object.values(C.PROFILES)) {
+    if (p.code === 'XX') continue;
+    assert.ok(doc.includes(`${p.name.en} (${p.code})`), `${p.code} missing from docs/countries.md`);
+    const row = doc.split('\n').find((line) => line.startsWith(`| ${p.name.en} (${p.code})`));
+    assert.ok(row.includes(p.taxIdCheck === 'checksum' ? '✓ check digit' : 'format only'), `${p.code}: the docs must match the validator`);
+  }
+});

@@ -104,3 +104,14 @@ test('ranking stays fast at the import limits (2,000 suppliers, 5,000 quotes, 5,
   assert.equal(ranked.length, 2000);
   assert.ok(ms < 2000, `took ${ms} ms`);
 });
+
+test('São Paulo: the same logic in Brazil, in reais, with the card from a fair merged into the referred workshop', () => {
+  const { db, need, settings } = demo('sao-paulo', 'boxes');
+  assert.equal(db.suppliers.some((s) => s.id === 'sp-cida-cartao'), false, 'same phone: merged automatically');
+  const { ranked } = Score.rankSuppliers(db, need, settings);
+  assert.equal(ranked[0].supplier.name, 'Caixas Dona Cida');
+  assert.equal(ranked[0].cost.currency, 'BRL');
+  assert.equal(ranked[0].trust.referrals.count, 3);
+  const marketplace = ranked.find((r) => r.supplier.id === 'sp-caixaja');
+  assert.ok(marketplace.warnings.some((w) => w.code === 'too_slow'));
+});

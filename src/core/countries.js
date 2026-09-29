@@ -240,10 +240,12 @@
   }
 
   function formatValidator(pattern, clean) {
-    return function (raw) {
+    var fn = function (raw) {
       var text = clean(String(raw || ''));
       return { valid: pattern.test(text), checked: 'format', normalized: text };
     };
+    fn.formatOnly = true;
+    return fn;
   }
 
   var upperNoSpaces = function (text) { return text.toUpperCase().replace(/[\s-]/g, ''); };
@@ -311,7 +313,8 @@
     return {
       code: code, name: name, currency: o.currency, locale: o.locale, language: o.language || 'es',
       vatRate: o.vatRate, vatName: o.vatName, taxIdName: o.taxIdName, taxIdLabels: o.taxIdLabels,
-      validateTaxId: o.validate || noValidator, callingCode: o.callingCode || '', nationalLengths: o.nationalLengths || [],
+      validateTaxId: o.validate || noValidator, taxIdCheck: !o.validate ? 'none' : o.validate.formatOnly ? 'format' : 'checksum',
+      callingCode: o.callingCode || '', nationalLengths: o.nationalLengths || [],
       poundKg: o.poundKg || 0.453592, arrobaKg: o.arrobaKg || 11.5, quintalKg: o.quintalKg || 45.36,
       dataLaw: o.dataLaw || null, procurement: o.procurement || [], businessRegistry: o.businessRegistry || [],
       registries: o.registries || [], localPhone: o.localPhone || null, sampleCity: o.sampleCity || ''

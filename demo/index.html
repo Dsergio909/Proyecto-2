@@ -27,8 +27,8 @@
   </div>
   <div class="controls">
     <label class="dataset"><span class="sr-only" data-i18n="dataset"></span><select id="dataset"></select></label>
-    <div class="lang" role="group" aria-label="Language">
-      <button type="button" data-lang="es">ES</button><button type="button" data-lang="en">EN</button>
+    <div class="lang" id="langGroup" role="group" aria-label="Language">
+      <button type="button" data-lang="es" lang="es" title="Español">ES</button><button type="button" data-lang="en" lang="en" title="English">EN</button><button type="button" data-lang="pt" lang="pt" title="Português">PT</button><button type="button" data-lang="fr" lang="fr" title="Français">FR</button>
     </div>
   </div>
 </header>
@@ -124,6 +124,11 @@
     <section class="panel ways">
       <div class="panel-head"><h2 data-i18n="waysTitle"></h2></div>
       <ol id="ways" class="ways-list"></ol>
+      <div class="country-box">
+        <h3 id="countryTitle"></h3>
+        <p class="hint" data-i18n="countryHint"></p>
+        <dl id="countryInfo" class="country-info"></dl>
+      </div>
     </section>
     <div class="grid">
       <section class="panel">
@@ -133,13 +138,14 @@
           <button type="button" class="btn small" data-example="card" data-i18n="exCard"></button>
           <button type="button" class="btn small" data-example="whatsapp" data-i18n="exWhatsapp"></button>
           <button type="button" class="btn small" data-example="flyer" data-i18n="exFlyer"></button>
+          <button type="button" class="btn small" data-example="cartao" data-i18n="exCartao"></button>
         </div>
         <label class="stack"><span class="sr-only" data-i18n="captureTitle"></span><textarea id="captureText" rows="9" maxlength="5000"></textarea></label>
         <div class="form-grid">
           <label><span data-i18n="captureCountry"></span><select id="captureCountry"></select></label>
           <label><span data-i18n="howFound"></span><select id="captureSource"></select></label>
           <label class="full"><span data-i18n="referredBy"></span><input id="captureReferrer" type="text" maxlength="80"></label>
-          <label class="check full"><input id="captureConsent" type="checkbox"> <span data-i18n="consent"></span></label>
+          <label class="check full"><input id="captureConsent" type="checkbox"> <span id="consentText"></span></label>
         </div>
         <button type="button" id="extract" class="btn primary" data-i18n="extract"></button>
       </section>

@@ -7,10 +7,12 @@
  *   node cli/scout.js registry --preset secop-co --q "carton corrugado" [--city Bogota] [--limit 50]
  *   node cli/scout.js registry --preset secop-co --describe
  *   node cli/scout.js registry --domain https://data.example.gov --dataset abcd-1234 --country XX --q "..."   (any Socrata portal)
+ *   node cli/scout.js ocds     --file releases.json --country PY [--q "carton"] [--category packaging] [--label "DNCP"]
+ *   node cli/scout.js ocds     --url https://.../release-package.json --country MX   (Open Contracting Data Standard)
  *   node cli/scout.js places   --q "cajas de carton" --lat 4.6782 --lng -74.1411 [--radius 5000]   (needs GOOGLE_PLACES_API_KEY)
  *   node cli/scout.js csv      --file expositores.csv --country CO [--source import|registry]
  *   node cli/scout.js merge    a.json b.json
- *   node cli/scout.js rank     --db all.json --category packaging --qty 500 [--unit unidad] [--lat .. --lng ..] [--radius 12] [--preset cheapest] [--lang en]
+ *   node cli/scout.js rank     --db all.json --category packaging --qty 500 [--unit unidad] [--lat .. --lng ..] [--radius 12] [--preset cheapest] [--lang es|en|pt|fr]
  *
  * Common flags: --out file.json (default: stdout), --country CO.
  */
@@ -26,6 +28,7 @@ const Csv = require('../src/core/csv');
 const Countries = require('../src/core/countries');
 const osm = require('../src/connectors/osm');
 const socrata = require('../src/connectors/socrata');
+const ocds = require('../src/connectors/ocds');
 const places = require('../src/connectors/places');
 const { today } = require('../src/connectors/http');
 const { parseArgs } = require('./args');
@@ -87,10 +90,21 @@ const commands = {
     emit(args, db, io);
   },
 
+  async ocds(args, io, deps) {
+    const country = String(args.country || 'XX').toUpperCase();
+    const source = args.file ? { file: String(args.file) } : { url: args.url ? String(args.url) : '' };
+    const label = String(args.label || (args.file ? path.basename(String(args.file)) : 'OCDS'));
+    const result = await ocds.searchOcds(source, { country, label, keywords: args.q, category: args.category }, { fetchImpl: deps.fetchImpl, at: today() });
+    io.err(`${result.releases} releases read · ${result.suppliers.length} suppliers (tenderers and awarded)`);
+    const db = database(country, result.suppliers);
+    summary(db, io);
+    emit(args, db, io);
+  },
+
   async places(args, io, deps) {
     const country = args.country || 'CO';
     const result = await places.searchPlaces(
-      { query: args.q, lat: args.lat, lng: args.lng, radiusM: args.radius, category: args.category, country, regionCode: country, languageCode: args.lang || 'es' },
+      { query: args.q, lat: args.lat, lng: args.lng, radiusM: args.radius, category: args.category, country, regionCode: country, languageCode: args.lang || Countries.getProfile(country).language },
       { fetchImpl: deps.fetchImpl }
     );
     const db = database(country, result.suppliers);
@@ -132,7 +146,7 @@ const commands = {
     if (!args.db) throw new Error('--db is required');
     const db = readDb(String(args.db));
     const country = args.country || db.country || 'CO';
-    const lang = args.lang === 'en' ? 'en' : 'es';
+    const lang = Messages.pickLanguage(args.lang || Countries.getProfile(country).language);
     const need = {
       category: args.category || null,
       quantity: Number(args.qty) || 1,
@@ -158,7 +172,7 @@ async function main(argv, io, deps) {
   const args = parseArgs(argv);
   const name = args._.shift();
   if (!name || !commands[name]) {
-    io.err('Usage: node cli/scout.js <osm|registry|places|csv|merge|rank> [options]  (see the header of cli/scout.js)');
+    io.err('Usage: node cli/scout.js <osm|registry|ocds|places|csv|merge|rank> [options]  (see the header of cli/scout.js)');
     return 1;
   }
   try {

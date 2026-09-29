@@ -49,11 +49,21 @@ test('self-hosted fonts exist, with their licence', () => {
   assert.ok(fs.readdirSync(path.join(root, 'demo', 'fonts')).some((f) => /^OFL/.test(f)));
 });
 
-test('every interface text exists in Spanish and English', () => {
+test('every interface text exists in Spanish, English, Portuguese and French', () => {
   global.window = global;
   require('../demo/i18n.js');
-  const { es, en } = global.ScoutI18n;
+  const all = global.ScoutI18n;
   const keys = (o, prefix = '') => Object.keys(o).flatMap((k) => (o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) ? keys(o[k], prefix + k + '.') : [prefix + k]));
-  assert.deepEqual(keys(es).sort(), keys(en).sort());
-  assert.equal(es.ways.length, en.ways.length);
+  assert.deepEqual(Object.keys(all), ['es', 'en', 'pt', 'fr']);
+  for (const lang of ['en', 'pt', 'fr']) {
+    assert.deepEqual(keys(all[lang]).sort(), keys(all.es).sort(), lang);
+    assert.equal(all[lang].ways.length, all.es.ways.length, lang);
+    const placeholders = (text) => [...String(text).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join();
+    for (const k of keys(all.es)) {
+      const get = (o) => k.split('.').reduce((v, part) => v[part], o);
+      assert.equal(placeholders(get(all[lang])), placeholders(get(all.es)), `${lang}.${k} keeps the same {placeholders}`);
+    }
+  }
+  const buttons = [...html.matchAll(/data-lang="(\w+)"/g)].map((m) => m[1]);
+  assert.deepEqual(buttons, ['es', 'en', 'pt', 'fr'], 'one button per language');
 });

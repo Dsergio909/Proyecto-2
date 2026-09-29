@@ -20,7 +20,7 @@ test('every email and website uses the reserved .example domain', () => {
 test('phones are in ranges that cannot reach a real person', () => {
   for (const ds of all) {
     for (const s of ds.suppliers) {
-      (s.phones || []).forEach((p) => assert.match(p, /^\+57999\d{7}$|^\+5255000\d{5}$/, p));
+      (s.phones || []).forEach((p) => assert.match(p, /^\+57999\d{7}$|^\+5255000\d{5}$|^\+551100000\d{3}$/, p));
     }
   }
 });

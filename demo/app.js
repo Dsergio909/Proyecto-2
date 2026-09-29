@@ -36,7 +36,17 @@
   var MAX_LISTED = 50;
 
   var state = null;
-  var prefs = { lang: /^en/i.test(navigator.language || '') ? 'en' : 'es', datasetId: 'bogota' };
+  var prefs = { lang: detectLanguage(), datasetId: 'bogota' };
+
+  /** The first browser language we speak (pt-BR -> pt), otherwise English. */
+  function detectLanguage() {
+    var list = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+    for (var i = 0; i < list.length; i++) {
+      var base = String(list[i]).toLowerCase().split('-')[0];
+      if (I18N[base]) return base;
+    }
+    return 'en';
+  }
 
   // ---------- helpers ----------
 
@@ -289,13 +299,45 @@
     fillSelect($('dataset'), Object.keys(Sample.DATASETS).map(function (id) {
       return { value: id, label: Sample.DATASETS[id].label[prefs.lang] };
     }), prefs.datasetId);
+    $('langGroup').setAttribute('aria-label', t('language'));
+    var profile = C.getProfile(country());
+    var params = {
+      procurement: profile.procurement.join(', ') || '—',
+      registry: profile.businessRegistry.join(', ') || '—',
+      city: profile.sampleCity,
+      clusters: dataset().clusters || '—'
+    };
     var ways = clear($('ways'));
     t('ways').forEach(function (w) {
       var li = el('li');
       li.appendChild(el('strong', null, w[0]));
-      li.appendChild(document.createTextNode(' ' + w[1]));
+      li.appendChild(document.createTextNode(' ' + fmt(w[1], params)));
       ways.appendChild(li);
     });
+    renderCountryInfo(profile);
+  }
+
+  /** Where formal suppliers show up in this country, even without a website. */
+  function renderCountryInfo(profile) {
+    $('countryTitle').textContent = fmt(t('countryTitle'), { country: profile.name[prefs.lang].toUpperCase() });
+    var rows = [
+      [t('countryTax'), profile.vatName + ' ' + (profile.vatRate ? M.formatPercent(profile.vatRate, prefs.lang) : '(' + t('countryTaxVaries') + ')') + ' · ' + profile.currency],
+      [t('countryTaxId'), profile.taxIdName + ' (' + (profile.taxIdCheck === 'checksum' ? t('countryCheck') : t('countryFormat')) + ')'],
+      [t('countryProcurement'), profile.procurement.join(' · ') || '—'],
+      [t('countryRegistry'), profile.businessRegistry.join(' · ') || '—'],
+      [t('countryDataLaw'), profile.dataLaw || t('countryNoLaw')]
+    ];
+    var dl = clear($('countryInfo'));
+    rows.forEach(function (r) {
+      dl.appendChild(el('dt', null, r[0]));
+      dl.appendChild(el('dd', null, r[1]));
+    });
+  }
+
+  function renderConsentLabel() {
+    var profile = C.getProfile($('captureCountry').value || country());
+    var law = profile.dataLaw ? fmt(t('consentLaw'), { country: profile.name[prefs.lang], law: profile.dataLaw }) : t('consentNoLaw');
+    $('consentText').textContent = t('consent') + ' (' + law + ')';
   }
 
   // ---------- KPIs & tabs ----------
@@ -421,7 +463,7 @@
       var g = svg('g', {});
       var title = svg('title', {});
       var km = Geo.distanceKm(o, s);
-      title.textContent = s.name + ' · ' + M.formatKm(km) + (p.r.rank ? ' · #' + p.r.rank : '');
+      title.textContent = s.name + ' · ' + M.formatKm(km, prefs.lang) + (p.r.rank ? ' · #' + p.r.rank : '');
       g.appendChild(title);
       g.appendChild(svg('rect', p.excluded
         ? { x: x, y: y, width: 8, height: 8, fill: 'none', stroke: color, 'stroke-width': 2, opacity: 0.5 }
@@ -467,7 +509,7 @@
 
   function outreachBlock(s) {
     var need = currentNeed();
-    var text = Out.rfqMessage({ category: need.category, item: need.item, quantity: need.quantity, unit: need.unit, neededInDays: need.neededInDays, deliveryZone: origin().label }, s.name, prefs.lang);
+    var text = Out.rfqMessage({ category: need.category, item: need.item, quantity: need.quantity, unit: need.unit, neededInDays: need.neededInDays, deliveryZone: origin().label }, s.name, prefs.lang, country());
     var box = el('div', 'outreach');
     box.appendChild(el('p', 'hint', t('rfqHint')));
     var pre = el('pre', 'message', text);
@@ -517,8 +559,8 @@
     }
     fact(t('orderTotal'), r.cost ? money(r.cost.total) : t('noQuote'));
     fact(t('perUnit'), r.cost ? money(r.cost.unitCost) : t('none'));
-    fact(t('distance'), r.km === null ? t('none') : M.formatKm(r.km));
-    fact(t('rating'), r.rating.value.toFixed(1) + ' / 5');
+    fact(t('distance'), r.km === null ? t('none') : M.formatKm(r.km, prefs.lang));
+    fact(t('rating'), M.formatDecimal(r.rating.value.toFixed(1), prefs.lang) + ' / 5');
     li.appendChild(facts);
 
     var bars = el('div', 'factor-bars');
@@ -723,6 +765,7 @@
     var profiles = Object.keys(C.PROFILES).map(function (code) { return { value: code, label: C.PROFILES[code].name[prefs.lang] }; });
     fillSelect($('captureCountry'), profiles, $('captureCountry').value || country());
     fillSelect($('captureSource'), [{ value: 'field', label: t('srcField') }, { value: 'referral', label: t('srcReferral') }], $('captureSource').value || 'field');
+    renderConsentLabel();
     renderCapturePreview();
     $('referralMessage').textContent = Out.referralRequest($('referralCategory').value || state.need.category, prefs.lang);
 
@@ -979,11 +1022,13 @@
       b.addEventListener('click', function () {
         var key = b.getAttribute('data-example');
         $('captureText').value = Sample.CAPTURE_EXAMPLES[key];
-        $('captureCountry').value = key === 'flyer' ? 'MX' : 'CO';
+        $('captureCountry').value = { flyer: 'MX', cartao: 'BR' }[key] || 'CO';
+        renderConsentLabel();
         $('captureSource').value = 'field';
         $('captureReferrer').value = '';
       });
     });
+    $('captureCountry').addEventListener('change', renderConsentLabel);
     $('extract').addEventListener('click', function () {
       state.capture = Capture.parseCapture($('captureText').value, { country: $('captureCountry').value });
       state.captureStatus = '';

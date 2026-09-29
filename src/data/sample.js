@@ -4,7 +4,8 @@
  * - Websites and emails use the reserved .example domain.
  * - Colombian phones use the 999 prefix, which is not assigned to any line in
  *   Colombia, so no demo WhatsApp link can reach a real person. Mexican phones
- *   use 55 0000 xxxx, likewise not a real subscriber range.
+ *   use 55 0000 xxxx and Brazilian ones (11) 0000-0xxx, likewise not real
+ *   subscriber ranges.
  * - Tax IDs are generated (999 series) with a correct check digit so the
  *   validation logic can be shown; they are not meant to belong to anyone.
  * - Neighbourhood coordinates are approximate and public geography only.
@@ -26,10 +27,15 @@
     return { value: value, label: 'RFC', country: 'MX', valid: true, checked: 'format' };
   }
 
+  function cnpj(value) {
+    return { value: value, label: 'CNPJ', country: 'BR', valid: true, checked: 'checksum' };
+  }
+
   var bogota = {
     id: 'bogota',
     country: 'CO',
-    label: { es: 'Bogotá (Colombia)', en: 'Bogotá (Colombia)' },
+    label: { es: 'Bogotá (Colombia)', en: 'Bogotá (Colombia)', pt: 'Bogotá (Colômbia)', fr: 'Bogotá (Colombie)' },
+    clusters: 'San Victorino, Ricaurte, El Restrepo',
     fx: { USD: 3900 },
     origins: [
       { id: 'fontibon', label: 'Fontibón', lat: 4.6782, lng: -74.1411 },
@@ -179,7 +185,8 @@
   var cdmx = {
     id: 'cdmx',
     country: 'MX',
-    label: { es: 'Ciudad de México (México)', en: 'Mexico City (Mexico)' },
+    label: { es: 'Ciudad de México (México)', en: 'Mexico City (Mexico)', pt: 'Cidade do México (México)', fr: 'Mexico (Mexique)' },
+    clusters: 'La Merced, Centro Histórico, Azcapotzalco',
     fx: { USD: 18.5 },
     origins: [
       { id: 'azcapotzalco', label: 'Azcapotzalco', lat: 19.4869, lng: -99.1844 },
@@ -231,6 +238,86 @@
     ]
   };
 
+  var saoPaulo = {
+    id: 'sao-paulo',
+    country: 'BR',
+    label: { es: 'São Paulo (Brasil)', en: 'São Paulo (Brazil)', pt: 'São Paulo (Brasil)', fr: 'São Paulo (Brésil)' },
+    clusters: 'Brás, Rua 25 de Março, Santa Ifigênia',
+    fx: { USD: 5.4 },
+    origins: [
+      { id: 'mooca', label: 'Mooca', lat: -23.5600, lng: -46.5990 },
+      { id: 'se', label: 'Sé (Centro)', lat: -23.5503, lng: -46.6340 }
+    ],
+    needs: [
+      { id: 'boxes', category: 'packaging', item: 'caixas de papelão ondulado', quantity: 500, unit: 'unidad', originId: 'mooca', radiusKm: 15, neededInDays: 7 },
+      { id: 'cables', category: 'electronics', item: 'cabos de rede', quantity: 100, unit: 'unidad', originId: 'se', radiusKm: 5, neededInDays: 5 }
+    ],
+    suppliers: [
+      { id: 'sp-embalagens-paulista', name: 'Embalagens Paulista Ltda', categories: ['packaging'], taxId: cnpj('99.900.301/0001-39'),
+        phones: ['+551100000301'], emails: ['vendas@embalagenspaulista.example'], websites: ['https://embalagenspaulista.example/'],
+        address: 'Rua da Mooca, 1200', city: 'São Paulo', country: 'BR', lat: -23.5570, lng: -46.6010, ships: true,
+        sources: [src('web', 'embalagenspaulista.example', '2026-09-20')], verification: 1,
+        rating: { avg: 4.5, count: 180, source: 'maps' } },
+      { id: 'sp-caixas-dona-cida', name: 'Caixas Dona Cida', categories: ['packaging'],
+        phones: ['+551100000302'], address: 'Brás', city: 'São Paulo', country: 'BR', lat: -23.5440, lng: -46.6160, ships: true,
+        sources: [src('referral', 'Marcos · compras', '2026-09-06')], verification: 3, consent: true,
+        internalReviews: [
+          { by: 'Compras', stars: 5, note: 'Papelão firme, amostra aprovada.', at: '2026-09-12' },
+          { by: 'Expedição', stars: 4, note: 'Entregou no prazo.', at: '2026-09-20' }
+        ],
+        notes: 'Oficina familiar. Vende só por WhatsApp; sem site.' },
+      { id: 'sp-cida-cartao', name: 'CAIXAS DONA CIDA', categories: ['packaging'],
+        phones: ['+551100000302'], address: 'Rua do Gasômetro, Brás', city: 'São Paulo', country: 'BR',
+        sources: [src('field', 'Cartão de visita · feira', '2026-09-24')], verification: 0 },
+      { id: 'sp-papelao-ipiranga', name: 'Papelão Ipiranga', categories: ['packaging'],
+        phones: ['+551100000303'], city: 'São Paulo', country: 'BR', lat: -23.5870, lng: -46.6100,
+        sources: [src('map', 'osm:node/demo-303', '2026-09-22')], verification: 0 },
+      { id: 'sp-ondulados-guarulhos', name: 'Ondulados Guarulhos Ltda', categories: ['packaging'], taxId: cnpj('99.900.304/0001-72'),
+        phones: ['+551100000304'], emails: ['comercial@onduladosguarulhos.example'], city: 'Guarulhos', country: 'BR',
+        lat: -23.4540, lng: -46.5330, ships: true, sources: [src('registry', 'PNCP · fornecedores', '2026-09-22')], verification: 2 },
+      { id: 'sp-caixaja', name: 'CaixaJá Marketplace', categories: ['packaging'],
+        emails: ['pedidos@caixaja.example'], websites: ['https://caixaja.example/'], city: 'Barueri', country: 'BR',
+        lat: -23.5110, lng: -46.8760, ships: true, sources: [src('web', 'caixaja.example', '2026-09-21')], verification: 0,
+        rating: { avg: 4.9, count: 6, source: 'marketplace' } },
+      { id: 'sp-eletro-ifigenia', name: 'Eletrônica Santa Ifigênia', categories: ['electronics'],
+        phones: ['+551100000305'], address: 'Rua Santa Ifigênia', city: 'São Paulo', country: 'BR', lat: -23.5395, lng: -46.6385,
+        sources: [src('field', 'Cartão de visita', '2026-09-18')], verification: 1, consent: true },
+      { id: 'sp-cabos-centro', name: 'Cabos & Conectores Centro Ltda', categories: ['electronics'], taxId: cnpj('99.900.306/0001-61'),
+        phones: ['+551100000306'], emails: ['vendas@caboscentro.example'], websites: ['https://caboscentro.example/'],
+        city: 'São Paulo', country: 'BR', lat: -23.5450, lng: -46.6330, ships: true,
+        sources: [src('web', 'caboscentro.example', '2026-09-19')], verification: 1, rating: { avg: 4.3, count: 95, source: 'maps' } },
+      { id: 'sp-rede-25', name: 'Rede 25 Distribuidora', categories: ['electronics'],
+        phones: ['+551100000307'], address: 'Rua 25 de Março', city: 'São Paulo', country: 'BR', lat: -23.5435, lng: -46.6320,
+        sources: [src('referral', 'Eletrônica Santa Ifigênia', '2026-09-19')], verification: 1 }
+    ],
+    quotes: [
+      { id: 'sq-paulista', supplierId: 'sp-embalagens-paulista', category: 'packaging', item: 'Caixa 40x30x30',
+        price: 2.9, currency: 'BRL', per: { qty: 1, unit: 'unidad' }, taxIncluded: true, shipping: 45, leadDays: 3, paymentDays: 0 },
+      { id: 'sq-cida', supplierId: 'sp-caixas-dona-cida', category: 'packaging', item: 'Caixa 40x30x30',
+        price: 3.1, currency: 'BRL', per: { qty: 1, unit: 'unidad' }, taxIncluded: true, shipping: 0, leadDays: 2, paymentDays: 15 },
+      { id: 'sq-guarulhos', supplierId: 'sp-ondulados-guarulhos', category: 'packaging', item: 'Caixa 40x30x30',
+        price: 250, currency: 'BRL', per: { qty: 100, unit: 'unidad' }, taxIncluded: true, shipping: 0,
+        minOrder: { qty: 1000, unit: 'unidad' }, leadDays: 6, paymentDays: 30 },
+      { id: 'sq-caixaja', supplierId: 'sp-caixaja', category: 'packaging', item: 'Caixa 40x30x30',
+        price: 2.4, currency: 'BRL', per: { qty: 1, unit: 'unidad' }, taxIncluded: true, shipping: 90,
+        minOrder: { qty: 1000, unit: 'unidad' }, leadDays: 10, paymentDays: 0 },
+      { id: 'sq-ifigenia', supplierId: 'sp-eletro-ifigenia', category: 'electronics', item: 'Cabo de rede Cat6 2 m',
+        price: 8.5, currency: 'BRL', per: { qty: 1, unit: 'unidad' }, taxIncluded: true, shipping: 0, leadDays: 1, paymentDays: 0 },
+      { id: 'sq-cabos', supplierId: 'sp-cabos-centro', category: 'electronics', item: 'Cabo de rede Cat6 2 m',
+        price: 79.9, currency: 'BRL', per: { qty: 10, unit: 'unidad' }, taxIncluded: true, shipping: 25, leadDays: 2, paymentDays: 0 },
+      { id: 'sq-rede25', supplierId: 'sp-rede-25', category: 'electronics', item: 'Cabo de rede Cat6 2 m',
+        price: 6.9, currency: 'BRL', per: { qty: 1, unit: 'unidad' }, taxIncluded: true, shipping: 0,
+        minOrder: { qty: 200, unit: 'unidad' }, leadDays: 3, paymentDays: 30 }
+    ],
+    referrals: [
+      { id: 'sr1', from: 'person:marcos', fromLabel: 'Marcos · compras', to: 'sp-caixas-dona-cida', relation: 'colleague', at: '2026-09-06' },
+      { id: 'sr2', from: 'person:ana', fromLabel: 'Ana · logística', to: 'sp-caixas-dona-cida', relation: 'colleague', at: '2026-09-10' },
+      { id: 'sr3', from: 'sp-embalagens-paulista', to: 'sp-caixas-dona-cida', relation: 'supplier', at: '2026-09-15',
+        note: 'Indica a oficina para pedidos pequenos.' },
+      { id: 'sr4', from: 'sp-eletro-ifigenia', to: 'sp-rede-25', relation: 'supplier', at: '2026-09-19' }
+    ]
+  };
+
   // Texts to try the field-capture parser. Fictional.
   var CAPTURE_EXAMPLES = {
     card: [
@@ -251,10 +338,20 @@
       'Tel. 55 0000 0207',
       'PLA 1 kg $395 MXN IVA incluido',
       'Envío $120'
+    ].join('\n'),
+    cartao: [
+      'EMBALAGENS VILA MARIA',
+      'Caixas de papelão e fitas adesivas',
+      'CNPJ 99.900.308/0001-50',
+      'Rua das Embalagens, 450 - Vila Maria, São Paulo',
+      'Tel/WhatsApp (11) 0000-0309',
+      'vendas@vilamaria.example',
+      'Caixa 40x30x30 c/ 25 R$ 89,90 com impostos',
+      'Entrega em 3 dias. Boleto 28 dias.'
     ].join('\n')
   };
 
-  var api = { TODAY: TODAY, DATASETS: { bogota: bogota, cdmx: cdmx }, CAPTURE_EXAMPLES: CAPTURE_EXAMPLES };
+  var api = { TODAY: TODAY, DATASETS: { bogota: bogota, cdmx: cdmx, 'sao-paulo': saoPaulo }, CAPTURE_EXAMPLES: CAPTURE_EXAMPLES };
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;

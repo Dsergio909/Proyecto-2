@@ -82,3 +82,13 @@ test('errors are reported without a stack trace and exit non-zero', async () => 
   assert.match(o.stderr(), /^Error: /);
   assert.equal(await main(['nope'], io()), 1);
 });
+
+test('ocds command reads a release package file', async () => {
+  const file = tmp('releases.json', fixture('ocds-release-package.json'));
+  const o = io();
+  assert.equal(await main(['ocds', '--file', file, '--country', 'PY', '--category', 'packaging', '--label', 'DNCP'], o), 0);
+  assert.match(o.stderr(), /2 releases read · 2 suppliers/);
+  const db = JSON.parse(o.stdout());
+  assert.equal(db.country, 'PY');
+  assert.deepEqual(db.suppliers.map((s) => s.name), ['Cartonera Guaraní S.A.', 'Embalajes del Este']);
+});

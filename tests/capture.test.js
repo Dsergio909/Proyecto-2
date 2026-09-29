@@ -209,9 +209,10 @@ test('Costa Rica: cédula jurídica, colones and "100 varas al sur"', () => {
 });
 
 test('a WhatsApp paragraph from Peru: soles, "+ IGV", the product after "vendemos"', () => {
-  const text = 'Hola, somos Maderas San Martín, vendemos tablas de pino a S/ 35 la unidad + IGV, pedido mínimo 20 unidades. Llámanos al 999 000 601. Entregamos en Lima en 2 días.';
+  const text = 'Hola, somos Maderas San Martín, vendemos tablas de pino a S/ 35 la unidad + IGV, pedido mínimo 20 unidades. Llámanos al (01) 000 0601. Entregamos en Lima en 2 días.';
   const d = parseCapture(text, { country: 'PE' }).draft;
   assert.equal(d.name, 'Maderas San Martín');
+  assert.deepEqual(d.phones, ['+5110000601'], 'Lima landline written with its old trunk prefix');
   assert.deepEqual([d.prices[0].item, d.prices[0].price, d.prices[0].currency, d.prices[0].taxIncluded], ['tablas de pino', 35, 'PEN', false]);
   assert.deepEqual(d.minOrder, { qty: 20, unit: 'unidades', resolved: true });
   assert.deepEqual([d.ships, d.leadDays], [true, 2]);
@@ -234,4 +235,13 @@ test('"Bs" is local in Bolivia and Venezuela, and flagged anywhere else', () => 
   const r = parseCapture('Harina Bs. 120', { country: 'CO' });
   assert.ok(r.warnings.some((w) => w.code === 'currency_ambiguous' && w.options === 'VES / BOB'));
   assert.equal(r.draft.prices[0].currencyGuess, undefined, 'internal field is not leaked into the draft');
+});
+
+test('Brazilian business card from the demo: CNPJ, (11) phone, "com impostos", "boleto 28 dias"', () => {
+  const r = parseCapture(CAPTURE_EXAMPLES.cartao, { country: 'BR' });
+  const d = r.draft;
+  assert.deepEqual([d.name, d.taxId.valid, d.phones[0], d.city], ['EMBALAGENS VILA MARIA', true, '+551100000309', 'São Paulo']);
+  assert.deepEqual([d.prices[0].price, d.prices[0].per.qty, d.prices[0].taxIncluded], [89.9, 25, true]);
+  assert.deepEqual([d.leadDays, d.paymentDays], [3, 28]);
+  assert.equal(r.completeness, 1);
 });

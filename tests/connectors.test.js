@@ -164,3 +164,59 @@ test('responses over the size limit are rejected without reading them whole', as
   const small = { getReader: () => ({ read: async () => (ok.length ? { done: false, value: ok.shift() } : { done: true }), cancel: async () => {} }) };
   assert.equal(await readLimited({ headers: { get: () => null }, body: small }, 1000), '{"a":1}');
 });
+
+// ---------- Open Contracting Data Standard (OCDS) ----------
+
+const ocds = require('../src/connectors/ocds');
+
+test('OCDS: tenderers and awarded suppliers become records; buyers do not', () => {
+  const releases = ocds.parseText(fixture('ocds-release-package.json'));
+  assert.equal(releases.length, 2);
+  const suppliers = ocds.normalizeReleases(releases, { country: 'PY', label: 'DNCP demo', at: '2026-09-29' });
+  assert.deepEqual(suppliers.map((s) => s.name), ['Cartonera Guaraní S.A.', 'Distribuidora Bad Digit', 'Embalajes del Este', 'Imprenta Ñandutí']);
+  assert.ok(!suppliers.some((s) => /Compradora/.test(s.name)), 'the buyer is not a supplier');
+  const [cartonera, bad, este, imprenta] = suppliers;
+  assert.deepEqual(cartonera.taxId, { value: '80999001-6', label: 'RUC', country: 'PY', valid: true, checked: 'checksum' });
+  assert.equal(cartonera.sources[0].ref, 'DNCP demo · 2 awards', 'the same RUC written two ways is one supplier');
+  assert.deepEqual([cartonera.phones, cartonera.emails, cartonera.websites], [['+595981000601'], ['ventas@cartoneraguarani.example'], ['https://cartoneraguarani.example/']]);
+  assert.deepEqual([cartonera.city, cartonera.categories, cartonera.verification], ['Asunción', ['packaging'], 2]);
+  assert.deepEqual([bad.taxId.valid, bad.verification, bad.sources[0].ref], [false, 0, 'DNCP demo · 1 bid'], 'a cancelled award is not a win');
+  assert.equal(este.taxId.valid, true);
+  assert.deepEqual([imprenta.taxId, imprenta.categories], [null, ['printing']]);
+});
+
+test('OCDS: the contact person\'s name is never imported', () => {
+  const suppliers = ocds.normalizeReleases(ocds.parseText(fixture('ocds-release-package.json')), { country: 'PY' });
+  assert.doesNotMatch(JSON.stringify(suppliers), /Persona Ficticia/);
+});
+
+test('OCDS: record packages, plain arrays and JSON Lines are all read', () => {
+  const pkg = JSON.parse(fixture('ocds-release-package.json'));
+  const records = { records: pkg.releases.map((r) => ({ ocid: r.ocid, compiledRelease: r })) };
+  assert.equal(ocds.parseText(JSON.stringify(records)).length, 2);
+  assert.equal(ocds.parseText(JSON.stringify(pkg.releases)).length, 2);
+  assert.equal(ocds.parseText(pkg.releases.map((r) => JSON.stringify(r)).join('\n')).length, 2);
+  assert.throws(() => ocds.parseText('{not json'), /Not valid OCDS JSON/);
+});
+
+test('OCDS: the identifier scheme tells the country; filters by keyword and category', () => {
+  assert.equal(ocds.countryFromScheme('PY-RUC'), 'PY');
+  assert.equal(ocds.countryFromScheme('MX-RFC'), 'MX');
+  assert.equal(ocds.countryFromScheme('XI-PB'), null, 'not a country code');
+  const releases = ocds.parseText(fixture('ocds-release-package.json'));
+  const noCountry = ocds.normalizeReleases(releases, {});
+  assert.equal(noCountry[0].taxId.country, 'PY', 'validated as Paraguayan even when the country is not given');
+  assert.deepEqual(ocds.normalizeReleases(releases, { keywords: 'afiches' }).map((s) => s.name), ['Distribuidora Bad Digit', 'Imprenta Ñandutí']);
+  assert.deepEqual(ocds.normalizeReleases(releases, { category: 'packaging' }).map((s) => s.name), ['Cartonera Guaraní S.A.', 'Embalajes del Este']);
+});
+
+test('OCDS: only https URLs are fetched and the result passes the import gate', async () => {
+  await assert.rejects(ocds.searchOcds({ url: 'http://ocds.example/x.json' }), /https/);
+  await assert.rejects(ocds.searchOcds({}), /--file .* or --url/);
+  const fetch = fakeFetch([['ocds.example', fixture('ocds-release-package.json')]]);
+  const out = await ocds.searchOcds({ url: 'https://ocds.example/demo/release-package.json' }, { country: 'PY' }, { fetchImpl: fetch, at: '2026-09-29' });
+  assert.equal(out.releases, 2);
+  const db = Schema.sanitizeDatabase({ country: 'PY', suppliers: out.suppliers });
+  assert.equal(db.suppliers.length, 4);
+  assert.equal(db.suppliers[0].sources[0].type, 'registry');
+});

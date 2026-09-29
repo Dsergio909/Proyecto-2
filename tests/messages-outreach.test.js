@@ -44,6 +44,9 @@ test('labels exist in every language, and unknown languages fall back to English
   assert.equal(M.pickLanguage('de-DE'), 'en');
   assert.equal(M.explain({ code: 'distance', km: 2 }, 'de'), '2 km from your search point.');
   assert.equal(M.explain({ code: 'distance', km: 2 }, 'pt'), 'A 2 km do seu ponto de busca.');
+  assert.equal(M.explain({ code: 'distance', km: 2.5 }, 'fr'), 'À 2,5 km de votre point de recherche.', 'decimal comma');
+  assert.equal(M.explain({ code: 'distance', km: 2.5 }, 'en'), '2.5 km from your search point.');
+  assert.equal(M.formatPercent(0.115, 'es'), '11,5%');
 });
 
 test('the quote request names the local sales tax and speaks Portuguese and French', () => {
