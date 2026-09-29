@@ -1,0 +1,8 @@
+[
+  { "nombre": "CORRUGADOS DEMO LA SABANA SAS", "nit": "999000104-2", "telefono": "999 000 0104", "correo": "comercial@corrugadosdemo.example",
+    "municipio": "Funza", "departamento": "Cundinamarca", "descripcion_categoria_principal": "Cajas de cartón corrugado y embalaje",
+    "ubicacion": { "type": "Point", "coordinates": [-74.211, 4.716] }, "espyme": "SI" },
+  { "nombre": "IMPRESOS DEMO", "nit": "999000110-3", "telefono": "999 000 0110", "municipio": "Bogotá D.C.",
+    "descripcion_categoria_principal": "Servicios de impresión y litografía", "ubicacion": { "latitude": "0", "longitude": "0" } },
+  { "nit": "999000101-0", "municipio": "Bogotá D.C." }
+]

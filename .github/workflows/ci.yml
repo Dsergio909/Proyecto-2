@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      # One runtime dependency (the official Anthropic SDK, used only by the agent). No install scripts run.
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      # The agent CLI loads with the real SDK; --dry-run uses no key and no network.
+      - name: Agent smoke test (no AI, no network)
+        run: |
+          node -e "require('fs').mkdirSync('out',{recursive:true});require('fs').writeFileSync('out/demo.json',JSON.stringify(require('./src/data/sample').DATASETS.bogota))"
+          node agent/cli.js --dry-run --db out/demo.json --category packaging --qty 500 --lat 4.6782 --lng -74.1411 --days 7 --radius 12 --offline --out out/result.json

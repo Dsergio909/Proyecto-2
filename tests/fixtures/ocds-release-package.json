@@ -1,0 +1,58 @@
+{
+  "uri": "https://ocds.example/demo/release-package.json",
+  "publishedDate": "2026-09-01T00:00:00Z",
+  "version": "1.1",
+  "publisher": { "name": "Fictional publisher for tests" },
+  "releases": [
+    {
+      "ocid": "ocds-demo-0001",
+      "id": "ocds-demo-0001-award",
+      "date": "2026-08-10T00:00:00Z",
+      "tag": ["award"],
+      "initiationType": "tender",
+      "parties": [
+        { "id": "PY-DEMO-BUYER", "name": "Entidad Compradora de Ejemplo", "roles": ["buyer", "procuringEntity"],
+          "identifier": { "scheme": "PY-RUC", "id": "80999003-2" } },
+        { "id": "PY-RUC-80999001-6", "name": "Cartonera Guaraní S.A.", "roles": ["tenderer", "supplier"],
+          "identifier": { "scheme": "PY-RUC", "id": "80999001-6", "legalName": "Cartonera Guaraní Sociedad Anónima" },
+          "address": { "streetAddress": "Avda. Ficticia 123", "locality": "Asunción", "region": "Central", "countryName": "Paraguay" },
+          "contactPoint": { "name": "Persona Ficticia", "email": "ventas@cartoneraguarani.example", "telephone": "0981 000601", "url": "cartoneraguarani.example" } },
+        { "id": "PY-RUC-80999002-4", "name": "Embalajes del Este", "roles": ["tenderer"],
+          "identifier": { "scheme": "PY-RUC", "id": "80999002-4" },
+          "address": { "locality": "Ciudad del Este" } }
+      ],
+      "tender": {
+        "id": "T-0001",
+        "items": [{ "id": "1", "description": "Cajas de cartón corrugado 40x30x30", "classification": { "scheme": "UNSPSC", "id": "24112700", "description": "Cajas" } }],
+        "tenderers": [{ "id": "PY-RUC-80999001-6", "name": "Cartonera Guaraní S.A." }, { "id": "PY-RUC-80999002-4", "name": "Embalajes del Este" }]
+      },
+      "awards": [
+        { "id": "A-0001", "status": "active", "suppliers": [{ "id": "PY-RUC-80999001-6", "name": "Cartonera Guaraní S.A." }],
+          "value": { "amount": 15000000, "currency": "PYG" } }
+      ]
+    },
+    {
+      "ocid": "ocds-demo-0002",
+      "id": "ocds-demo-0002-award",
+      "date": "2026-08-20T00:00:00Z",
+      "tag": ["award"],
+      "parties": [
+        { "id": "PY-DEMO-BUYER", "name": "Entidad Compradora de Ejemplo", "roles": ["buyer"] },
+        { "id": "PY-RUC-80999001-6", "name": "Cartonera Guaraní S.A.", "roles": ["supplier"],
+          "identifier": { "scheme": "PY-RUC", "id": "80.999.001-6" } },
+        { "id": "tmp-3", "name": "Imprenta Ñandutí", "roles": ["tenderer"] },
+        { "id": "PY-RUC-80999004-9", "name": "Distribuidora Bad Digit", "roles": ["tenderer"],
+          "identifier": { "scheme": "PY-RUC", "id": "80999004-9" } }
+      ],
+      "tender": {
+        "items": [{ "id": "1", "description": "Impresión de afiches y volantes" }],
+        "tenderers": [{ "id": "tmp-3" }, { "id": "PY-RUC-80999004-9" }]
+      },
+      "awards": [
+        { "id": "A-0002", "status": "active", "suppliers": [{ "id": "PY-RUC-80999001-6" }],
+          "items": [{ "id": "1", "description": "Cajas de cartón para archivo" }] },
+        { "id": "A-0003", "status": "cancelled", "suppliers": [{ "id": "PY-RUC-80999004-9" }] }
+      ]
+    }
+  ]
+}

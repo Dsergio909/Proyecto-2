@@ -1,0 +1,11 @@
+{
+  "_comment": "Fictional fixture shaped like a Places API (New) Text Search response.",
+  "places": [
+    { "id": "demoPlaceId001", "displayName": { "text": "Cajas Demo Maps", "languageCode": "es" },
+      "formattedAddress": "Fontibón, Bogotá, Colombia", "location": { "latitude": 4.671, "longitude": -74.131 },
+      "rating": 4.4, "userRatingCount": 37, "nationalPhoneNumber": "999 000 0401", "businessStatus": "OPERATIONAL" },
+    { "id": "demoPlaceId002", "displayName": { "text": "Empaques Cerrados Demo" }, "businessStatus": "CLOSED_PERMANENTLY" },
+    { "id": "demoPlaceId003", "displayName": { "text": "Embalajes Demo Web" }, "websiteUri": "https://embalajesdemo.example/",
+      "internationalPhoneNumber": "+57 999 000 0402", "location": { "latitude": 4.66, "longitude": -74.12 } }
+  ]
+}

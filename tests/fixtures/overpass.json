@@ -1,0 +1,14 @@
+{
+  "_comment": "Fictional fixture shaped like an Overpass API JSON response.",
+  "version": 0.6,
+  "elements": [
+    { "type": "node", "id": 9001, "lat": 4.6701, "lon": -74.1302,
+      "tags": { "name": "Cajas Demo El Porvenir", "shop": "packaging", "phone": "+57 999 000 0301; 999 000 0302", "opening_hours": "Mo-Sa 08:00-18:00" } },
+    { "type": "way", "id": 9002, "center": { "lat": 4.6650, "lon": -74.1350 },
+      "tags": { "name": "Empaques Demo Industrial", "craft": "packaging", "website": "https://empaquesdemo.example", "addr:street": "Calle 17", "addr:housenumber": "96-40", "addr:city": "Bogotá" } },
+    { "type": "node", "id": 9003, "lat": 4.6800, "lon": -74.1400, "tags": { "shop": "packaging" } },
+    { "type": "node", "id": 9001, "lat": 4.6701, "lon": -74.1302, "tags": { "name": "Cajas Demo El Porvenir", "shop": "packaging" } },
+    { "type": "node", "id": 9004, "lat": 4.6720, "lon": -74.1320,
+      "tags": { "name": "Cartón y Embalajes Demo", "shop": "trade", "contact:whatsapp": "999 000 0303" } }
+  ]
+}

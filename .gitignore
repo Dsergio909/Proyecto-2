@@ -1,0 +1,12 @@
+node_modules/
+
+# Secrets: keys live in environment variables only
+.env
+.env.*
+!.env.example
+
+# Your own supplier data and agent/connector outputs (may contain real contacts)
+/data/
+/out/
+*.private.json
+*.private.csv

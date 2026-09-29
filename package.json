@@ -1,0 +1,18 @@
+{
+  "name": "supplier-scout",
+  "version": "1.0.0",
+  "description": "Find new suppliers — including the ones with no website — and compare them by real order cost, fair ratings, distance and trust. Web app, CLI connectors and an optional Claude agent.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "scout": "node cli/scout.js",
+    "agent": "node agent/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0"
+  }
+}

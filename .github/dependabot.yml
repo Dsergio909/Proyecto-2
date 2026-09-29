@@ -1,0 +1,14 @@
+# Weekly pull requests for security and version updates of the only npm dependency
+# (the Anthropic SDK) and of the GitHub Actions used by the workflows.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
