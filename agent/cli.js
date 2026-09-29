@@ -24,7 +24,7 @@ const path = require('node:path');
 const Schema = require('../src/core/schema');
 const { createToolbox } = require('./tools');
 const { runAgent, DEFAULT_MODEL } = require('./loop');
-const { parseArgs } = require('../cli/scout');
+const { parseArgs } = require('../cli/args');
 
 const HELP = 'Usage: npm run agent -- "what you need and where" [--db my-suppliers.json] [--out result.json]\n' +
   '       npm run agent -- --dry-run --category packaging --qty 500 --lat 4.6782 --lng -74.1411 [--offline]\n' +

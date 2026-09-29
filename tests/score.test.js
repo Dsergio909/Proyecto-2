@@ -89,3 +89,18 @@ test('every factor is between 0 and 1 and scores are sorted', () => {
     }
   }
 });
+
+test('ranking stays fast at the import limits (2,000 suppliers, 5,000 quotes, 5,000 referrals)', () => {
+  const sup = [];
+  const quotes = [];
+  const refs = [];
+  for (let i = 0; i < 2000; i++) sup.push({ id: 's' + i, name: 'P' + i, categories: ['packaging'], lat: 4.6, lng: -74.1, sources: [{ type: 'map' }] });
+  for (let i = 0; i < 5000; i++) quotes.push({ id: 'q' + i, supplierId: 's' + (i % 2000), category: 'packaging', price: 1000 + i, per: { qty: 1, unit: 'unidad' } });
+  for (let i = 0; i < 5000; i++) refs.push({ id: 'r' + i, from: 's' + ((i * 7) % 2000), to: 's' + (i % 2000) });
+  const db = Schema.sanitizeDatabase({ suppliers: sup, quotes, referrals: refs });
+  const start = Date.now();
+  const { ranked } = Score.rankSuppliers(db, { category: 'packaging', quantity: 10, unit: 'unidad', origin: { lat: 4.6, lng: -74.1 }, radiusKm: 10 }, { country: 'CO' });
+  const ms = Date.now() - start;
+  assert.equal(ranked.length, 2000);
+  assert.ok(ms < 2000, `took ${ms} ms`);
+});

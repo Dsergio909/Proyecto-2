@@ -189,3 +189,26 @@ test('agent CLI: without a request it prints help', async () => {
   assert.equal(await main([], { out: () => {}, err: (s) => err.push(s) }), 1);
   assert.match(err.join(''), /Usage/);
 });
+
+test('suppliers who refused consent are never described to the model', async () => {
+  const tb = toolbox();
+  const own = await tb.run('search_my_database', { category: 'textiles', text: '' });
+  assert.ok(!JSON.stringify(own).includes('Bordados Luna'));
+  assert.equal(own.hidden_without_consent, 1);
+  const ranked = await tb.run('rank_candidates', Object.assign({ category: 'textiles', quantity: 10, unit: 'unidad', radius_km: 12, needed_in_days: 0, budget: 0, priority: 'balanced' }, FONTIBON));
+  assert.ok(!JSON.stringify(ranked).includes('Bordados Luna'));
+  const drafted = await tb.run('draft_messages', { kind: 'quote_request', supplier_ids: ['bog-bordados-luna'], category: 'textiles', item: '', quantity: 0, unit: 'unidad', needed_in_days: 0 });
+  assert.equal(drafted.drafted, 0);
+});
+
+test('oversized tool output is cut with a visible marker', async () => {
+  const big = { definitions: [], names: ['big'], run: async () => ({ blob: 'x'.repeat(50000) }) };
+  const client = scriptedClient([
+    { stop_reason: 'tool_use', content: [use('b1', 'big', {})] },
+    { stop_reason: 'end_turn', content: [{ type: 'text', text: 'ok' }] }
+  ]);
+  await runAgent({ client, toolbox: big, request: 'x' });
+  const result = client.calls[1].messages.at(-1).content[0].content;
+  assert.ok(result.length < 20100);
+  assert.match(result, /truncated/);
+});

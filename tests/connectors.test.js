@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const osm = require('../src/connectors/osm');
 const socrata = require('../src/connectors/socrata');
 const places = require('../src/connectors/places');
-const { fetchJson, HttpError, USER_AGENT } = require('../src/connectors/http');
+const { fetchJson, readLimited, HttpError, USER_AGENT } = require('../src/connectors/http');
 const Schema = require('../src/core/schema');
 const { fakeFetch, fixture } = require('./helpers/fake-fetch');
 
@@ -140,4 +140,27 @@ test('Places: ratings kept, closed businesses dropped, records flagged for refre
 test('HTTP errors carry the status and a short body', async () => {
   const fetch = fakeFetch([['x', 'rate limited', 429]]);
   await assert.rejects(fetchJson('https://x.example/', { fetchImpl: fetch }), (err) => err instanceof HttpError && err.status === 429);
+});
+
+test('Places: a missing coordinate never becomes (0, 0)', () => {
+  for (const [lat, lng] of [[null, null], [undefined, undefined], ['', ''], [4.6, null], ['abc', -74]]) {
+    const body = JSON.parse(places.buildRequest({ query: 'cajas', lat, lng }, 'demo-key').init.body);
+    assert.equal(body.locationBias, undefined, JSON.stringify([lat, lng]));
+  }
+});
+
+test('responses over the size limit are rejected without reading them whole', async () => {
+  const headers = { get: (h) => (h === 'content-length' ? '999999999' : null) };
+  await assert.rejects(readLimited({ headers, text: async () => { throw new Error('should not read'); } }, 1000), /too large/);
+
+  let cancelled = false;
+  const chunks = [new Uint8Array(600), new Uint8Array(600), new Uint8Array(600)];
+  const body = { getReader: () => ({ read: async () => (chunks.length ? { done: false, value: chunks.shift() } : { done: true }), cancel: async () => { cancelled = true; } }) };
+  await assert.rejects(readLimited({ headers: { get: () => null }, body }, 1000), /too large/);
+  assert.equal(cancelled, true);
+  assert.equal(chunks.length, 1, 'stopped reading at the limit');
+
+  const ok = [new TextEncoder().encode('{"a":'), new TextEncoder().encode('1}')];
+  const small = { getReader: () => ({ read: async () => (ok.length ? { done: false, value: ok.shift() } : { done: true }), cancel: async () => {} }) };
+  assert.equal(await readLimited({ headers: { get: () => null }, body: small }, 1000), '{"a":1}');
 });

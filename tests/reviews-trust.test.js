@@ -74,3 +74,23 @@ test('suppliers that only recommend each other count half', () => {
   assert.equal(t.referrals.mutual, 1);
   assert.equal(t.value, 0.45);
 });
+
+test('ids that collide with JavaScript object keys are handled like any other id', () => {
+  const list = [
+    { id: '__proto__', name: 'P', verification: 1 },
+    { id: 'constructor', name: 'C', verification: 1 },
+    { id: 'toString', name: 'T', verification: 0 }
+  ];
+  const map = indexById(list);
+  const refs = [{ from: 'constructor', to: '__proto__' }, { from: 'toString', to: '__proto__' }];
+  const t = trustScore(list[0], refs, map);
+  assert.equal(t.referrals.count, 2);
+  assert.equal(t.value, 0.6);
+  assert.equal(trustScore(list[2], refs, map).referrals.count, 0);
+});
+
+test('a prebuilt referral index gives the same result as the raw list', () => {
+  const { buildReferralIndex } = require('../src/core/trust');
+  const refs = [{ from: 'a', to: 'b' }, { from: 'b', to: 'a' }, { from: 'person:x', to: 'b' }];
+  assert.deepEqual(trustScore(suppliers[1], buildReferralIndex(refs), byId), trustScore(suppliers[1], refs, byId));
+});

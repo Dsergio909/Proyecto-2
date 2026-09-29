@@ -33,10 +33,33 @@
     });
   }
 
-  function bigrams(text) {
-    var grams = [];
-    for (var i = 0; i < text.length - 1; i++) grams.push(text.slice(i, i + 2));
-    return grams;
+  /**
+   * Precomputable form of a name for similarity: its meaningful letters and
+   * their character-bigram counts. Build it once per record, compare many times.
+   */
+  function nameProfile(text) {
+    var key = nameTokens(text).join('');
+    var counts = new Map();
+    for (var i = 0; i < key.length - 1; i++) {
+      var gram = key.slice(i, i + 2);
+      counts.set(gram, (counts.get(gram) || 0) + 1);
+    }
+    return { key: key, counts: counts, total: Math.max(0, key.length - 1) };
+  }
+
+  /** Dice coefficient between two name profiles, 0..1. */
+  function profileSimilarity(p, q) {
+    if (!p.key || !q.key) return 0;
+    if (p.key === q.key) return 1;
+    if (!p.total || !q.total) return 0;
+    var small = p.counts.size <= q.counts.size ? p : q;
+    var big = small === p ? q : p;
+    var shared = 0;
+    small.counts.forEach(function (n, gram) {
+      var m = big.counts.get(gram);
+      if (m) shared += Math.min(n, m);
+    });
+    return (2 * shared) / (p.total + q.total);
   }
 
   /**
@@ -44,20 +67,7 @@
    * "Ferretería El Tornillo SAS" vs "FERRETERIA TORNILLO" -> 1.
    */
   function nameSimilarity(a, b) {
-    var x = nameTokens(a).join('');
-    var y = nameTokens(b).join('');
-    if (!x || !y) return 0;
-    if (x === y) return 1;
-    var gx = bigrams(x);
-    var gy = bigrams(y);
-    if (!gx.length || !gy.length) return 0;
-    var pool = {};
-    gx.forEach(function (g) { pool[g] = (pool[g] || 0) + 1; });
-    var shared = 0;
-    gy.forEach(function (g) {
-      if (pool[g]) { shared++; pool[g]--; }
-    });
-    return (2 * shared) / (gx.length + gy.length);
+    return profileSimilarity(nameProfile(a), nameProfile(b));
   }
 
   /** Clamp a number into [min, max]. */
@@ -70,6 +80,8 @@
     normalize: normalize,
     nameTokens: nameTokens,
     nameSimilarity: nameSimilarity,
+    nameProfile: nameProfile,
+    profileSimilarity: profileSimilarity,
     clamp: clamp
   };
 

@@ -31,6 +31,7 @@
   var PHONE_RE = /(?:\+|\b00)?\d[\d\s().\-]{5,18}\d/g;
 
   var TAX_LABELS = 'N\\.?I\\.?T\\.?|RUT|RUC|CUIT|CUIL|RFC|CNPJ|EIN|NIF|CIF|TAX\\s?ID|VAT';
+  var TAX_LABEL_RE = new RegExp('(?:^|[^A-Z])(?:' + TAX_LABELS + ')(?![A-Z])', 'i');
   var TAX_RE = new RegExp('(?:^|[^A-Z])(' + TAX_LABELS + ')(?![A-Z])\\s*(?:No\\.?|N[°º]|#|:|\\.)?\\s*:?\\s*([A-Z0-9Ñ&][A-Z0-9Ñ&.\\-\\/]{5,19})', 'i');
 
   var CURRENCY_WORDS = {
@@ -66,16 +67,26 @@
   ];
 
   function unique(list) {
-    var seen = {};
+    var seen = new Set();
     return list.filter(function (item) {
-      if (seen[item]) return false;
-      seen[item] = true;
+      if (seen.has(item)) return false;
+      seen.add(item);
       return true;
     });
   }
 
   function blank(text, fragment) {
     return text.split(fragment).join(' '.repeat(fragment.length));
+  }
+
+  /** Blank an amount only where it stands alone: "20" in "c/u 20" but never inside "999 000 1220". */
+  function blankAmount(text, fragment) {
+    var core = fragment.trim();
+    if (!core) return text;
+    var escaped = core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(new RegExp('(^|[^\\d])' + escaped + '(?![\\d])', 'g'), function (match, before) {
+      return before + ' '.repeat(match.length - before.length);
+    });
   }
 
   function cleanItem(text) {
@@ -156,6 +167,7 @@
     var profile = Countries.getProfile(country);
     var prices = [];
     var shipping = null;
+    var fragments = [];
     segmentsOf(lines).forEach(function (segment) {
       MONEY_RE.lastIndex = 0;
       var match;
@@ -165,6 +177,7 @@
         var amount = Quotes.parseAmount(match[2] || match[4] || match[7] || match[9], multiplier);
         if (!isFinite(amount) || amount <= 0) continue;
         var currency = (CURRENCY_WORDS.hasOwnProperty(symbol) && CURRENCY_WORDS[symbol]) || profile.currency;
+        fragments.push(match[0]);
         if (/\b(env[ií]o|domicilio|flete|shipping|despacho)\b/i.test(segment) && !/gratis|free/i.test(segment)) {
           shipping = { amount: amount, currency: currency, raw: segment };
           continue;
@@ -186,7 +199,7 @@
         });
       }
     });
-    return { prices: prices, shipping: shipping };
+    return { prices: prices, shipping: shipping, fragments: fragments };
   }
 
   // ---------- phones ----------
@@ -231,7 +244,7 @@
   // ---------- name ----------
 
   function looksLikeData(line) {
-    return HAS_EMAIL_RE.test(line) || STREET_RE.test(line) || new RegExp(TAX_LABELS, 'i').test(line) ||
+    return HAS_EMAIL_RE.test(line) || STREET_RE.test(line) || TAX_LABEL_RE.test(line) ||
       /\d[\d\s().\-]{6,}\d/.test(line) || /[$€]|\b(usd|cop|mxn)\b/i.test(line) || /https?:|www\./i.test(line);
   }
 
@@ -311,9 +324,10 @@
       }
     }
 
+    // Blank only the amounts, not their sentences: "Caja a 2.000 c/u, llama al 999 000 0101"
+    // keeps the phone. Amounts are removed so "1.250.000" is never read as a phone number.
     var priceInfo = extractPrices(lines, country);
-    priceInfo.prices.forEach(function (p) { work = blank(work, p.raw); });
-    if (priceInfo.shipping) work = blank(work, priceInfo.shipping.raw);
+    priceInfo.fragments.forEach(function (fragment) { work = blankAmount(work, fragment); });
 
     var phones = [];
     var unparsed = [];

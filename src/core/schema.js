@@ -81,6 +81,11 @@
     return text && /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
   }
 
+  function cleanCode(value, length) {
+    var text = str(value, length);
+    return text && new RegExp('^[A-Za-z]{' + length + '}$').test(text) ? text.toUpperCase() : null;
+  }
+
   function cleanCategory(value) {
     return Categories.byId(value) ? value : null;
   }
@@ -92,7 +97,7 @@
     return {
       value: text,
       label: str(value.label, 12),
-      country: str(value.country, 2),
+      country: cleanCode(value.country, 2),
       valid: value.valid === true ? true : value.valid === false ? false : null,
       checked: ['checksum', 'format', 'none'].indexOf(value.checked) !== -1 ? value.checked : 'none'
     };
@@ -135,7 +140,7 @@
       address: str(value.address, 200),
       city: str(value.city, 80),
       region: str(value.region, 80),
-      country: str(value.country, 2),
+      country: cleanCode(value.country, 2),
       lat: lat,
       lng: lng,
       ships: value.ships === true,
@@ -164,7 +169,7 @@
       category: cleanCategory(value.category),
       item: str(value.item, 120),
       price: price,
-      currency: (str(value.currency, 3) || '').toUpperCase() || null,
+      currency: cleanCode(value.currency, 3),
       per: { qty: num(per.qty, 0.000001, 1e9) || 1, unit: str(per.unit, 20) || 'unidad' },
       taxIncluded: value.taxIncluded === true,
       shipping: num(value.shipping, 0, 1e12) || 0,
@@ -202,16 +207,16 @@
   function sanitizeDatabase(value) {
     var db = value && typeof value === 'object' ? value : {};
     var suppliers = collect(db.suppliers, sanitizeSupplier, LIMITS.suppliers);
-    var ids = {};
+    var ids = new Set();
     suppliers.forEach(function (s) {
-      while (ids[s.id]) s.id = s.id + '_';
-      ids[s.id] = true;
+      while (ids.has(s.id)) s.id = s.id + '_';
+      ids.add(s.id);
     });
     return {
       version: 1,
-      country: str(db.country, 2) || null,
+      country: cleanCode(db.country, 2),
       suppliers: suppliers,
-      quotes: collect(db.quotes, sanitizeQuote, LIMITS.quotes).filter(function (q) { return ids[q.supplierId]; }),
+      quotes: collect(db.quotes, sanitizeQuote, LIMITS.quotes).filter(function (q) { return ids.has(q.supplierId); }),
       referrals: collect(db.referrals, sanitizeReferral, LIMITS.referrals)
     };
   }

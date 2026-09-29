@@ -81,3 +81,21 @@ test('duplicate ids in an import are made unique', () => {
   const db = Schema.sanitizeDatabase({ suppliers: [{ id: 'a', name: 'A' }, { id: 'a', name: 'B' }] });
   assert.deepEqual(db.suppliers.map((x) => x.id), ['a', 'a_']);
 });
+
+test('currency and country codes must look like codes', () => {
+  const db = Schema.sanitizeDatabase({
+    country: 'co',
+    suppliers: [{ id: 'a', name: 'A', country: '<s', taxId: { value: '1', country: 'mx' } }],
+    quotes: [{ supplierId: 'a', price: 1, currency: 'usd' }, { supplierId: 'a', price: 1, currency: '<i>' }]
+  });
+  assert.equal(db.country, 'CO');
+  assert.equal(db.suppliers[0].country, null);
+  assert.equal(db.suppliers[0].taxId.country, 'MX');
+  assert.deepEqual(db.quotes.map((q) => q.currency), ['USD', null]);
+});
+
+test('ids that match JavaScript object keys are kept as they are', () => {
+  const db = Schema.sanitizeDatabase({ suppliers: [{ id: 'constructor', name: 'A' }, { id: 'toString', name: 'B' }], quotes: [{ supplierId: 'valueOf', price: 1 }] });
+  assert.deepEqual(db.suppliers.map((x) => x.id), ['constructor', 'toString']);
+  assert.equal(db.quotes.length, 0, 'a quote for a supplier that does not exist is dropped');
+});

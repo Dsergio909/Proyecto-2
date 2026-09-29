@@ -75,7 +75,7 @@ Weights are presets (balanced, cheapest, most reliable, nearest, urgent) or slid
 `agent/` uses the Claude API (official `@anthropic-ai/sdk`, model `claude-opus-5-5` by default) with seven read-only tools: `find_coordinates`, `search_my_database`, `search_map`, `search_public_registry` (Colombia), `search_google_places` (only if you set a key), `rank_candidates` and `draft_messages`.
 
 - **It only reads and drafts.** There is no tool to send messages, write files or browse arbitrary pages. You review and send.
-- **Data minimisation.** Phone numbers and emails never go to the model; WhatsApp links for the drafts are filled in locally.
+- **Data minimisation.** Phone numbers and emails never go to the model; WhatsApp links for the drafts are filled in locally. Suppliers who refused consent for their personal data are ranked locally but never described to the model.
 - **Cost control.** At most 12 steps per run, effort `medium`, prompt caching, and token usage printed at the end.
 - **Safety.** Tool results are treated as data, not instructions (a business name on a map could contain text meant to manipulate the model). If a safety classifier declines a request, the API's server-side fallback retries on its recommended model (`fallbacks: "default"`).
 - **`--dry-run`** runs the same tools in a fixed order without AI or a key, to try it or compare.
@@ -89,12 +89,13 @@ Weights are presets (balanced, cheapest, most reliable, nearest, urgent) or slid
 | Personal data sent to the AI provider | Tool results strip phones and emails (tested) |
 | API keys leaking | Keys only in environment variables (`.env` is git-ignored, `.env.example` is empty); the Places key goes in a header, never the URL (tested) |
 | Query injection (Overpass QL, SoQL) | User text is reduced to letters and digits before building map queries; SoQL string literals are escaped (tested) |
-| Malicious import file (XSS, `javascript:` links, huge files) | One sanitising gate for all external data; http(s) links only; 2 MB limit; the page renders with `textContent` only |
+| Malicious import file (XSS, `javascript:` links, huge files) | One sanitising gate for all external data (also applied to what the browser saved, since storage is shared by every page on the same GitHub Pages domain); http(s) links only; 2 MB limit; the page renders with `textContent` only |
+| Huge or hostile inputs (availability) | Capture text capped at 5,000 characters and tested against regex backtracking; imports capped at 2,000 suppliers; duplicate search and ranking tested to stay fast at those limits; connector responses capped at 5 MB while streaming |
 | Spreadsheet formula injection in the CSV export | Cells starting with `=`, `+`, `-`, `@` are exported as text (tested) |
-| Demo page | Strict CSP: scripts from the site only, fonts from Google Fonts, `connect-src 'none'` (the page makes no network requests). No cookies or trackers |
-| Personal data of sole traders (Colombia: Law 1581 of 2012) | Consent checkbox on capture, warning in the ranking when consent was refused, data stays in the browser unless exported |
+| Demo page | Strict CSP with no third-party origins at all: scripts, styles and fonts (self-hosted, SIL Open Font License) come from the site itself, and `connect-src 'none'` means the page makes no network requests. No cookies or trackers |
+| Personal data of sole traders (Colombia: Law 1581 of 2012) | Consent checkbox on capture, warning in the ranking when consent was refused, never sent to the AI agent when refused, data stays in the browser unless exported |
 | Leaking real data from this public repo | All data is fictional: `.example` domains, Colombian phones with the unassigned `999` prefix, generated tax IDs. Tests enforce it |
-| CI supply chain | Read-only permissions, no persisted credentials, `npm ci --ignore-scripts`, one runtime dependency (the official SDK, used only by the agent) |
+| CI supply chain | Read-only permissions, no persisted credentials, `npm ci --ignore-scripts`, one runtime dependency (the official SDK, used only by the agent), Dependabot for security updates |
 | Terms of the data sources | OSM and Nominatim: attribution and an identifying User-Agent, geocoding only when you give a place name; Google Places: records are flagged for refresh or deletion per Google's terms |
 
 ## Architecture
@@ -142,10 +143,10 @@ src/core/          shared logic, no dependencies (browser + Node)
   messages.js        explanations (ES / EN) · outreach.js quote & referral drafts
 src/connectors/    OpenStreetMap, Socrata/SECOP, Google Places, Nominatim (Node)
 src/data/          fictional demo data (Bogotá and Mexico City)
-cli/scout.js       connectors, CSV import, merge and rank from the terminal
+cli/scout.js       connectors, CSV import, merge and rank from the terminal (args.js: shared parser)
 agent/             Claude agent: tools, loop, system prompt, CLI
-demo/              the web app (GitHub Pages)
-tests/             101 tests: core, connectors against API-shaped fixtures, CLI,
+demo/              the web app (GitHub Pages): app.js, i18n.js (ES/EN texts), self-hosted fonts
+tests/             118 tests: core, connectors against API-shaped fixtures, CLI,
                    agent loop with a scripted model, demo security guards
 docs/              screenshots and the offline playbook
 ```
@@ -190,9 +191,9 @@ npm run agent -- --dry-run --db data/all.json --category packaging --qty 500 --l
 
 Being explicit, because this matters more than the feature list:
 
-- **Tested (101 automated tests in CI):** all core logic; the connectors against fictional fixtures shaped like each API's documented responses; the CLI end to end; the agent loop against a scripted stand-in for the Claude API (tool calls, parallel results, errors, refusals, step limit, append-only history, no invented suppliers, no phones sent to the model); the demo's CSP and rendering guards. The web app was checked in Chromium on desktop and on a 375 px phone viewport.
+- **Tested (118 automated tests in CI):** all core logic; the connectors against fictional fixtures shaped like each API's documented responses; the CLI end to end; the agent loop against a scripted stand-in for the Claude API (tool calls, parallel results, errors, refusals, step limit, append-only history, no invented suppliers, no phones sent to the model); the demo's CSP and rendering guards; speed at the import limits. The web app was checked in Chromium on desktop and on a 375 px phone viewport.
 - **Not yet run against the live services:** the development environment could not reach OpenStreetMap, datos.gov.co, Google or the Claude API. The request formats follow each service's documentation, but the first real run may need small adjustments. The SECOP connector reads the dataset's columns at run time (`--describe` shows the mapping) precisely because I could not verify their names.
-- **Known limits:** distance is a straight line, not travel time; tax rates are editable defaults and import duties are not included; the capture parser handles common formats and anything unusual needs a manual fix, which is why every capture goes to review.
+- **Known limits:** GitHub Pages cannot send security headers, so the CSP is a `<meta>` tag and cannot forbid framing (the page has no sensitive actions to hijack); distance is a straight line, not travel time; tax rates are editable defaults and import duties are not included; the capture parser handles common formats and anything unusual needs a manual fix, which is why every capture goes to review.
 
 ## Roadmap
 

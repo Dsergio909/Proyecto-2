@@ -20,28 +20,51 @@
   var PER_REFERRER = 0.1;
   var MAX_REFERRAL_BONUS = 0.2;
 
+  /**
+   * Comparable form of a tax ID. Only Colombia's NIT drops its trailing check
+   * digit (the same company is written with or without it); other IDs keep
+   * every character (an Argentine CUIT "20-12345678-6" must not become "20").
+   */
   function taxKey(supplier) {
-    if (!supplier || !supplier.taxId || !supplier.taxId.value) return null;
-    return String(supplier.taxId.value).split('-')[0].replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    var tax = supplier && supplier.taxId;
+    if (!tax || !tax.value) return null;
+    var value = String(tax.value);
+    var isNit = tax.country === 'CO' || /^N\.?I\.?T/i.test(tax.label || '');
+    if (isNit || (!tax.country && /^[\d.\s]+-\d$/.test(value))) value = value.replace(/\s*-\s*\d$/, '');
+    return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null;
   }
 
-  /** Independent recommendations received by one supplier. */
+  /** Referrals indexed once, so ranking many suppliers stays linear. */
+  function buildReferralIndex(referrals) {
+    var incoming = new Map();
+    var pairs = new Set();
+    (referrals || []).forEach(function (ref) {
+      if (!incoming.has(ref.to)) incoming.set(ref.to, []);
+      incoming.get(ref.to).push(ref);
+      pairs.add(ref.from + '\u0000' + ref.to);
+    });
+    return { incoming: incoming, pairs: pairs };
+  }
+
+  /**
+   * Independent recommendations received by one supplier.
+   * `referrals` is an array or an index from buildReferralIndex().
+   */
   function referralStats(supplierId, referrals, suppliersById) {
+    var index = referrals && referrals.incoming ? referrals : buildReferralIndex(referrals);
     var target = suppliersById[supplierId];
     var targetTax = taxKey(target);
-    var seen = {};
+    var seen = new Set();
     var stats = { count: 0, weight: 0, mutual: 0, ignored: 0, from: [] };
-    (referrals || []).forEach(function (ref) {
-      if (ref.to !== supplierId || seen[ref.from]) return;
-      seen[ref.from] = true;
+    (index.incoming.get(supplierId) || []).forEach(function (ref) {
+      if (seen.has(ref.from)) return;
+      seen.add(ref.from);
       var referrer = suppliersById[ref.from];
       if (ref.from === supplierId || (referrer && targetTax && taxKey(referrer) === targetTax)) {
         stats.ignored++;
         return;
       }
-      var mutual = !!referrer && (referrals || []).some(function (back) {
-        return back.from === supplierId && back.to === ref.from;
-      });
+      var mutual = !!referrer && index.pairs.has(supplierId + '\u0000' + ref.from);
       stats.count++;
       stats.weight += mutual ? 0.5 : 1;
       if (mutual) stats.mutual++;
@@ -62,8 +85,9 @@
     };
   }
 
+  /** id -> supplier, on an object with no prototype (ids like "constructor" are safe). */
   function indexById(suppliers) {
-    var map = {};
+    var map = Object.create(null);
     (suppliers || []).forEach(function (s) { map[s.id] = s; });
     return map;
   }
@@ -71,6 +95,7 @@
   var api = {
     LEVEL_BASE: LEVEL_BASE,
     referralStats: referralStats,
+    buildReferralIndex: buildReferralIndex,
     trustScore: trustScore,
     indexById: indexById,
     taxKey: taxKey

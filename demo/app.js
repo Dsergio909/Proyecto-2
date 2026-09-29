@@ -31,162 +31,9 @@
   };
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
-  var I18N = {
-    es: {
-      tagline: '> encuentra proveedores nuevos · también los que no están en internet',
-      dataset: 'Datos de ejemplo',
-      intro: 'Busca proveedores por ubicación, compara el costo real de tu pedido (no solo el precio de lista), pondera las reseñas de forma justa y registra los proveedores que no aparecen en la web: referidos, tarjetas, mensajes de WhatsApp, mapas comunitarios y registros públicos.',
-      fictional: 'Todos los datos son ficticios (dominios .example, teléfonos con prefijo inexistente). Lo que agregues se guarda solo en tu navegador.',
-      kpiTotal: 'Proveedores', kpiOffline: 'Sin página web', kpiReferrals: 'Recomendaciones', kpiReview: 'Por revisar',
-      tabSearch: 'BUSCAR', tabQuotes: 'COTIZACIONES', tabOffline: 'FUERA DE INTERNET', tabReview: 'REVISIÓN', tabData: 'DATOS',
-      needTitle: 'TU NECESIDAD', example: 'Ejemplo', custom: '— personalizado —', category: 'Categoría', item: 'Qué necesitas',
-      quantity: 'Cantidad', unit: 'Unidad', origin: 'Desde', days: 'Lo necesito en (días)', radius: 'Radio:', budget: 'Presupuesto máximo (opcional)',
-      priority: 'Prioridad', weights: 'Ajustar pesos a mano',
-      preset: { balanced: 'Equilibrado', cheapest: 'Más barato', reliable: 'Más confiable', nearest: 'Más cerca', urgent: 'Urgente' },
-      factor: { price: 'Precio', rating: 'Reseñas', distance: 'Distancia', trust: 'Confianza', speed: 'Rapidez' },
-      units: { unidad: 'unidades', kg: 'kg', m: 'metros', l: 'litros', docena: 'docenas' },
-      unitOne: { unidad: 'unidad', kg: 'kg', m: 'metro', l: 'litro', docena: 'docena', galon: 'galón' },
-      radarTitle: 'RADAR', radarHint: 'tú en el centro · anillos cada {n} km', radarNoCoords: '{n} sin ubicación exacta',
-      radarDesc: 'Mapa de proveedores alrededor de {o}',
-      resultsTitle: 'RANKING', why: '¿Por qué este puesto?', rfq: 'Pedir cotización', copy: 'Copiar', copied: '¡Copiado!',
-      whatsapp: 'Abrir en WhatsApp', email: 'Enviar correo', website: 'Web', noWeb: 'SIN PÁGINA',
-      orderTotal: 'Total del pedido', perUnit: 'por unidad', distance: 'Distancia', rating: 'Reseñas', lead: 'Entrega',
-      noQuote: 'sin cotización', none: '—', daysUnit: 'días', excludedTitle: 'Fuera de tu radio y sin envíos:',
-      noResults: 'No hay proveedores de esta categoría. Captura uno en "Fuera de internet" o importa una lista.',
-      rfqHint: 'Borrador para que TÚ lo revises y lo envíes. Nada se envía automáticamente.',
-      quotesTitle: 'COMPARADOR DE COTIZACIONES',
-      quotesHint: 'Cada cotización convertida al costo real de TU pedido: paquetes completos, compra mínima, impuesto, envío y moneda. "Valor hoy" descuenta el plazo de pago con tu tasa de oportunidad.',
-      vat: 'Impuesto a las ventas (%)', monthlyRate: 'Tasa de oportunidad mensual (%)', fxUsd: 'Tasa de cambio USD (manual)',
-      callout: 'El precio de lista más bajo es de {list}, pero el pedido más barato es con {best}: compra mínima, paquetes, impuesto y envío cambian la cuenta.',
-      colSupplier: 'Proveedor', colItem: 'Producto', colListPrice: 'Precio', colPack: 'Presentación', colTax: 'Impuesto',
-      colShipping: 'Envío', colMoq: 'Mínimo', colBuy: 'Compras', colTotal: 'Total', colUnit: 'Por unidad', colTerms: 'Pago (días)',
-      colPv: 'Valor hoy', colLead: 'Entrega (días)', taxIncl: 'incluido', taxExcl: '+ impuesto', noQuotes: 'No hay cotizaciones para esta categoría.',
-      addQuote: 'AGREGAR COTIZACIÓN', packQty: 'Unidades por presentación', taxIncluded: 'El precio ya incluye impuesto', save: 'Guardar',
-      quoteSaved: 'Cotización guardada.',
-      waysTitle: 'CÓMO ENCONTRAR PROVEEDORES QUE NO ESTÁN EN INTERNET',
-      ways: [
-        ['Pregunta a quien ya compra.', 'Tus proveedores actuales y tus colegas saben a quién le compran. Usa el mensaje de referidos de abajo.'],
-        ['Registros públicos.', 'Compras públicas (SECOP en Colombia) y cámaras de comercio listan empresas formales aunque no tengan web. Hay conector.'],
-        ['Mapas comunitarios.', 'OpenStreetMap tiene talleres y locales mapeados a pie, en cualquier país. Hay conector.'],
-        ['Zonas y ferias del sector.', 'Clústeres comerciales (en Bogotá: San Victorino, Ricaurte, El Restrepo…) y listas de expositores. Importa el CSV.'],
-        ['Tarjetas, volantes y WhatsApp.', 'Pega el texto aquí abajo: se extraen nombre, NIT, teléfono, dirección y precios.'],
-        ['Verifica antes de comprar.', 'Dígito de verificación, visita o muestra y recomendaciones independientes suben la confianza.']
-      ],
-      captureTitle: 'CAPTURA DE CAMPO',
-      captureHint: 'Pega el texto de una tarjeta, un volante o un mensaje de WhatsApp. Se procesa aquí, en tu navegador: sin IA y sin internet.',
-      examples: 'Ejemplos:', exCard: 'Tarjeta', exWhatsapp: 'WhatsApp', exFlyer: 'Volante (MX)', captureCountry: 'País',
-      howFound: 'Cómo lo conseguiste', srcField: 'En campo (tarjeta, volante, visita)', srcReferral: 'Me lo recomendaron',
-      referredBy: 'Recomendado por (opcional)', consent: 'Autorizó guardar sus datos (en Colombia, Ley 1581 de 2012)', extract: '▶ EXTRAER',
-      previewTitle: 'LO QUE ENTENDÍ', previewEmpty: 'Pega un texto y pulsa EXTRAER.',
-      fieldLabels: { name: 'Nombre', taxId: 'ID tributario', phones: 'Teléfonos', emails: 'Correos', websites: 'Web', socials: 'Redes', address: 'Dirección', city: 'Ciudad', categories: 'Categoría', prices: 'Precios', terms: 'Condiciones' },
-      conf: { high: 'ALTA', medium: 'MEDIA', low: 'BAJA' }, completeness: 'Datos clave encontrados: {n}%',
-      terms: { leadDays: 'entrega {n} días', paymentDays: 'pago a {n} días', minOrder: 'mínimo {n}', ships: 'hace envíos', shipping: 'envío {n}' },
-      addToReview: 'Agregar a revisión', captureAdded: 'Agregado a REVISIÓN: verifícalo antes de comprarle.',
-      captureNeedsName: 'Falta el nombre: agrégalo al texto (por ejemplo en la primera línea) y vuelve a extraer.',
-      askReferralsTitle: 'PIDE RECOMENDACIONES', askReferralsHint: 'Envíalo a tus proveedores actuales y colegas: es la forma más efectiva de encontrar proveedores sin página web.',
-      networkTitle: 'RED DE RECOMENDACIONES', networkHint: 'Quién recomendó a quién. Las recomendaciones independientes suben la confianza; las autorecomendaciones no cuentan y las mutuas cuentan la mitad.',
-      mutual: 'mutua', noReferrals: 'Aún no hay recomendaciones.',
-      relation: { colleague: 'colega', supplier: 'proveedor', client: 'cliente', other: 'otro' },
-      pendingTitle: 'POR VERIFICAR', pendingHint: 'Proveedores nuevos (capturados o importados). Entran al ranking como "sin verificar" hasta que alguien los revise.',
-      pendingEmpty: 'Nada pendiente. Captura un proveedor en "Fuera de internet" o importa una lista.',
-      markLevel: 'Marcar como:', approve: 'Aprobar', discard: 'Descartar',
-      dupesTitle: 'POSIBLES DUPLICADOS', dupesHint: 'El sistema no adivina: si solo el nombre se parece, decides tú.', dupesEmpty: 'No hay duplicados pendientes.',
-      merge: 'Fusionar', distinct: 'Son distintos', suggestion: { merge: 'sugerido: fusionar', review: 'decide tú' },
-      tiersTitle: 'NIVELES DE CONFIANZA',
-      tierExact: 'Mismo ID tributario → se fusionan.',
-      tierHigh: 'Mismo teléfono o correo → se fusionan (salvo que tengan IDs tributarios distintos).',
-      tierMedium: 'Mismo dominio corporativo (nunca gmail/hotmail) → se fusionan si es único.',
-      tierLow: 'Solo nombre parecido y cercano → siempre revisión humana.',
-      autoMerged: 'Fusionado automáticamente al cargar: "{b}" → "{a}" ({why})',
-      sourcesTitle: 'DE DÓNDE VIENEN', offlineShare: '{p}% no tiene página web',
-      ioTitle: 'IMPORTAR / EXPORTAR',
-      ioHint: 'Importa el JSON del CLI o del agente, o cualquier CSV (lista de feria, cámara de comercio, tu hoja actual). Exporta a CSV para Google Sheets. Los datos se quedan en tu navegador.',
-      importJson: 'Importar JSON', importCsv: 'Importar CSV', exportJson: 'Exportar JSON', exportCsv: 'Exportar CSV (Sheets)', reset: '↺ Reiniciar demo',
-      imported: 'Importados {n} proveedores ({m} fusionados automáticamente). Revísalos en REVISIÓN.',
-      importError: 'No pude leer el archivo: {e}', tooBig: 'Archivo demasiado grande (máximo 2 MB).', resetDone: 'Demo reiniciada.',
-      csvColumns: 'Columnas reconocidas: {c}.',
-      cliTitle: 'CONECTORES Y AGENTE DE IA (EN TU COMPUTADOR)',
-      cliHint: 'Esta página no se conecta a internet. Los conectores (OpenStreetMap, SECOP, Google Places, CSV) y el agente de Claude corren con Node en tu computador y generan un JSON que importas aquí.',
-      footer: 'Datos sintéticos · lógica real en src/core · cubierta por tests'
-    },
-    en: {
-      tagline: '> find new suppliers · even the ones that are not online',
-      dataset: 'Sample data',
-      intro: 'Search suppliers by location, compare the real cost of your order (not just the list price), weigh reviews fairly, and record the suppliers the web does not show: referrals, business cards, WhatsApp messages, community maps and public registries.',
-      fictional: 'All data is fictional (.example domains, phones with an unassigned prefix). Anything you add stays in your browser.',
-      kpiTotal: 'Suppliers', kpiOffline: 'No website', kpiReferrals: 'Referrals', kpiReview: 'To review',
-      tabSearch: 'SEARCH', tabQuotes: 'QUOTES', tabOffline: 'OFFLINE', tabReview: 'REVIEW', tabData: 'DATA',
-      needTitle: 'WHAT YOU NEED', example: 'Example', custom: '— custom —', category: 'Category', item: 'What exactly',
-      quantity: 'Quantity', unit: 'Unit', origin: 'From', days: 'Needed within (days)', radius: 'Radius:', budget: 'Maximum budget (optional)',
-      priority: 'Priority', weights: 'Tune the weights by hand',
-      preset: { balanced: 'Balanced', cheapest: 'Cheapest', reliable: 'Most reliable', nearest: 'Nearest', urgent: 'Urgent' },
-      factor: { price: 'Price', rating: 'Reviews', distance: 'Distance', trust: 'Trust', speed: 'Speed' },
-      units: { unidad: 'units', kg: 'kg', m: 'metres', l: 'litres', docena: 'dozen' },
-      unitOne: { unidad: 'unit', kg: 'kg', m: 'metre', l: 'litre', docena: 'dozen', galon: 'gallon' },
-      radarTitle: 'RADAR', radarHint: 'you are in the centre · rings every {n} km', radarNoCoords: '{n} without an exact location',
-      radarDesc: 'Map of suppliers around {o}',
-      resultsTitle: 'RANKING', why: 'Why this position?', rfq: 'Request a quote', copy: 'Copy', copied: 'Copied!',
-      whatsapp: 'Open in WhatsApp', email: 'Send email', website: 'Website', noWeb: 'NO WEBSITE',
-      orderTotal: 'Order total', perUnit: 'per unit', distance: 'Distance', rating: 'Reviews', lead: 'Lead time',
-      noQuote: 'no quote', none: '—', daysUnit: 'days', excludedTitle: 'Outside your radius and not delivering:',
-      noResults: 'No suppliers in this category. Capture one in "Offline" or import a list.',
-      rfqHint: 'A draft for YOU to review and send. Nothing is sent automatically.',
-      quotesTitle: 'QUOTE COMPARISON',
-      quotesHint: 'Every quote converted into the real cost of YOUR order: whole packs, minimum order, tax, shipping and currency. "Value today" discounts the payment term at your opportunity rate.',
-      vat: 'Sales tax (%)', monthlyRate: 'Monthly opportunity rate (%)', fxUsd: 'USD exchange rate (manual)',
-      callout: 'The lowest list price is from {list}, but the cheapest order is with {best}: minimum order, packs, tax and shipping change the maths.',
-      colSupplier: 'Supplier', colItem: 'Item', colListPrice: 'Price', colPack: 'Pack', colTax: 'Tax',
-      colShipping: 'Shipping', colMoq: 'Minimum', colBuy: 'You buy', colTotal: 'Total', colUnit: 'Per unit', colTerms: 'Pay (days)',
-      colPv: 'Value today', colLead: 'Lead (days)', taxIncl: 'included', taxExcl: '+ tax', noQuotes: 'No quotes for this category yet.',
-      addQuote: 'ADD A QUOTE', packQty: 'Units per pack', taxIncluded: 'Price already includes tax', save: 'Save',
-      quoteSaved: 'Quote saved.',
-      waysTitle: 'HOW TO FIND SUPPLIERS THAT ARE NOT ONLINE',
-      ways: [
-        ['Ask people who already buy.', 'Your current suppliers and colleagues know who they buy from. Use the referral message below.'],
-        ['Public registries.', 'Public procurement (SECOP in Colombia) and chambers of commerce list formal businesses even without a website. Connector included.'],
-        ['Community maps.', 'OpenStreetMap has workshops and shops mapped on foot, in any country. Connector included.'],
-        ['Trade districts and fairs.', 'Commercial clusters (in Bogotá: San Victorino, Ricaurte, El Restrepo…) and exhibitor lists. Import the CSV.'],
-        ['Cards, flyers and WhatsApp.', 'Paste the text below: name, tax ID, phone, address and prices are extracted.'],
-        ['Verify before buying.', 'Check digits, a visit or a sample and independent referrals raise trust.']
-      ],
-      captureTitle: 'FIELD CAPTURE',
-      captureHint: 'Paste the text of a business card, a flyer or a WhatsApp message. It is processed here, in your browser: no AI, no internet.',
-      examples: 'Examples:', exCard: 'Card', exWhatsapp: 'WhatsApp', exFlyer: 'Flyer (MX)', captureCountry: 'Country',
-      howFound: 'How you found them', srcField: 'In the field (card, flyer, visit)', srcReferral: 'Someone recommended them',
-      referredBy: 'Recommended by (optional)', consent: 'They agreed to their data being stored (Colombia: Law 1581 of 2012)', extract: '▶ EXTRACT',
-      previewTitle: 'WHAT I UNDERSTOOD', previewEmpty: 'Paste a text and press EXTRACT.',
-      fieldLabels: { name: 'Name', taxId: 'Tax ID', phones: 'Phones', emails: 'Emails', websites: 'Website', socials: 'Social', address: 'Address', city: 'City', categories: 'Category', prices: 'Prices', terms: 'Terms' },
-      conf: { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }, completeness: 'Key data found: {n}%',
-      terms: { leadDays: 'delivers in {n} days', paymentDays: 'pay in {n} days', minOrder: 'minimum {n}', ships: 'delivers', shipping: 'shipping {n}' },
-      addToReview: 'Add to review', captureAdded: 'Added to REVIEW: verify it before buying.',
-      captureNeedsName: 'Name missing: add it to the text (e.g. on the first line) and extract again.',
-      askReferralsTitle: 'ASK FOR REFERRALS', askReferralsHint: 'Send it to your current suppliers and colleagues: the most effective way to find suppliers without a website.',
-      networkTitle: 'REFERRAL NETWORK', networkHint: 'Who recommended whom. Independent referrals raise trust; self-referrals count for nothing and mutual ones count half.',
-      mutual: 'mutual', noReferrals: 'No referrals yet.',
-      relation: { colleague: 'colleague', supplier: 'supplier', client: 'client', other: 'other' },
-      pendingTitle: 'TO VERIFY', pendingHint: 'New suppliers (captured or imported). They rank as "unverified" until someone reviews them.',
-      pendingEmpty: 'Nothing pending. Capture a supplier in "Offline" or import a list.',
-      markLevel: 'Mark as:', approve: 'Approve', discard: 'Discard',
-      dupesTitle: 'POSSIBLE DUPLICATES', dupesHint: 'The system does not guess: when only the name is similar, you decide.', dupesEmpty: 'No duplicates pending.',
-      merge: 'Merge', distinct: 'They are different', suggestion: { merge: 'suggested: merge', review: 'you decide' },
-      tiersTitle: 'CONFIDENCE TIERS',
-      tierExact: 'Same tax ID → merged.',
-      tierHigh: 'Same phone or email → merged (unless their tax IDs differ).',
-      tierMedium: 'Same corporate domain (never gmail/hotmail) → merged if unique.',
-      tierLow: 'Only a similar name nearby → always human review.',
-      autoMerged: 'Merged automatically on load: "{b}" → "{a}" ({why})',
-      sourcesTitle: 'WHERE THEY COME FROM', offlineShare: '{p}% have no website',
-      ioTitle: 'IMPORT / EXPORT',
-      ioHint: 'Import the JSON from the CLI or the agent, or any CSV (fair exhibitor list, chamber of commerce, your current sheet). Export CSV for Google Sheets. Data stays in your browser.',
-      importJson: 'Import JSON', importCsv: 'Import CSV', exportJson: 'Export JSON', exportCsv: 'Export CSV (Sheets)', reset: '↺ Reset demo',
-      imported: 'Imported {n} suppliers ({m} merged automatically). Check them in REVIEW.',
-      importError: 'Could not read the file: {e}', tooBig: 'File too large (2 MB maximum).', resetDone: 'Demo reset.',
-      csvColumns: 'Columns recognised: {c}.',
-      cliTitle: 'CONNECTORS AND AI AGENT (ON YOUR COMPUTER)',
-      cliHint: 'This page never connects to the internet. The connectors (OpenStreetMap, SECOP, Google Places, CSV) and the Claude agent run with Node on your computer and produce a JSON you import here.',
-      footer: 'Synthetic data · real logic in src/core · covered by tests'
-    }
-  };
+  var I18N = window.ScoutI18n;
+  var TABS = ['search', 'quotes', 'offline', 'review', 'data'];
+  var MAX_LISTED = 50;
 
   var state = null;
   var prefs = { lang: /^en/i.test(navigator.language || '') ? 'en' : 'es', datasetId: 'bogota' };
@@ -219,10 +66,16 @@
     return qty + ' ' + (word || unit);
   }
   function catLabel(id) { var c = Cat.byId(id); return c ? c.label[prefs.lang] : id; }
+  var byIdCache = { list: null, length: -1, map: null };
+
   function supplierById(id) {
-    for (var i = 0; i < state.db.suppliers.length; i++) if (state.db.suppliers[i].id === id) return state.db.suppliers[i];
-    return null;
+    var list = state.db.suppliers;
+    if (byIdCache.list !== list || byIdCache.length !== list.length) {
+      byIdCache = { list: list, length: list.length, map: new Map(list.map(function (s) { return [s.id, s]; })) };
+    }
+    return byIdCache.map.get(id) || null;
   }
+
   function uid(prefix) { return prefix + '-' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
   function pairKey(p) { return [p.a, p.b].sort().join('|'); }
   function explain(item) { return M.explain(item, prefs.lang, { country: country() }); }
@@ -256,8 +109,20 @@
       trigger.textContent = t('copied');
       setTimeout(function () { trigger.textContent = original; }, 1400);
     }
+    function selectForManualCopy() {
+      var pre = trigger.closest('.panel, .outreach');
+      var target = pre && pre.querySelector('pre');
+      if (!target || !window.getSelection) return;
+      var range = document.createRange();
+      range.selectNodeContents(target);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    }
+    // No clipboard access (e.g. a page opened from a file): select the text so Ctrl+C works.
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done, function () {});
+      navigator.clipboard.writeText(text).then(done, selectForManualCopy);
+    } else {
+      selectForManualCopy();
     }
   }
 
@@ -300,8 +165,8 @@
       autoMerged: merged.merged.map(function (p) {
         return { a: names[p.a], b: names[p.b], evidence: p.evidence };
       }),
-      pending: {},
-      distinct: {},
+      pending: Object.create(null),
+      distinct: Object.create(null),
       need: defaultNeed(ds),
       preset: 'balanced',
       weights: Object.assign({}, Score.PRESETS.balanced),
@@ -312,18 +177,48 @@
     };
   }
 
+  function plainObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  function finiteOr(value, fallback) {
+    var n = Number(value);
+    return value !== null && value !== '' && isFinite(n) ? n : fallback;
+  }
+
+  /**
+   * Browser storage is shared by every page on dsergio909.github.io and can be edited by
+   * hand, so a saved state is treated like an import: every field is checked before use.
+   */
   function loadState() {
     var saved = readStorage('state:' + prefs.datasetId);
     var base = freshState();
     if (saved && saved.db) {
       base.db = Schema.sanitizeDatabase(saved.db);
-      base.pending = saved.pending || {};
-      base.distinct = saved.distinct || {};
-      base.need = Object.assign(base.need, saved.need || {});
-      base.preset = saved.preset || base.preset;
-      base.weights = Object.assign(base.weights, saved.weights || {});
-      base.settings = Object.assign(base.settings, saved.settings || {});
-      base.tab = saved.tab || base.tab;
+      var ids = new Set(base.db.suppliers.map(function (s) { return s.id; }));
+      Object.keys(plainObject(saved.pending)).forEach(function (id) {
+        if (ids.has(id)) base.pending[id] = { reason: 'saved' };
+      });
+      Object.keys(plainObject(saved.distinct)).forEach(function (key) {
+        if (/^[^|]{1,80}\|[^|]{1,80}$/.test(key)) base.distinct[key] = true;
+      });
+      var need = plainObject(saved.need);
+      if (Cat.byId(need.category)) base.need.category = need.category;
+      if (UNITS.indexOf(need.unit) !== -1) base.need.unit = need.unit;
+      if (dataset().origins.some(function (o) { return o.id === need.originId; })) base.need.originId = need.originId;
+      if (typeof need.item === 'string') base.need.item = need.item.slice(0, 120);
+      base.need.presetId = dataset().needs.some(function (n) { return n.id === need.presetId; }) ? need.presetId : '';
+      base.need.quantity = Math.max(0.001, finiteOr(need.quantity, base.need.quantity));
+      base.need.radiusKm = Math.min(25, Math.max(1, finiteOr(need.radiusKm, base.need.radiusKm)));
+      base.need.neededInDays = Math.max(0, finiteOr(need.neededInDays, 0)) || null;
+      base.need.budget = Math.max(0, finiteOr(need.budget, 0)) || null;
+      if (Score.PRESETS[saved.preset]) base.preset = saved.preset;
+      else if (saved.preset === null) base.preset = null;
+      var weights = plainObject(saved.weights);
+      Score.FACTORS.forEach(function (f) { base.weights[f] = Math.min(6, Math.max(0, finiteOr(weights[f], base.weights[f]))); });
+      var settings = plainObject(saved.settings);
+      ['vat', 'monthlyRate', 'fxUsd'].forEach(function (k) { base.settings[k] = Math.max(0, finiteOr(settings[k], base.settings[k])); });
+      if (TABS.indexOf(saved.tab) !== -1) base.tab = saved.tab;
     }
     state = base;
   }
@@ -365,8 +260,15 @@
     };
   }
 
+  // Finding duplicates compares every pair of suppliers, so it runs only when the list changes.
+  var pairsCache = { suppliers: null, length: -1, pairs: [] };
+
   function reviewPairs() {
-    return Dedupe.findDuplicates(state.db.suppliers).filter(function (p) { return !state.distinct[pairKey(p)]; });
+    var list = state.db.suppliers;
+    if (pairsCache.suppliers !== list || pairsCache.length !== list.length) {
+      pairsCache = { suppliers: list, length: list.length, pairs: Dedupe.findDuplicates(list) };
+    }
+    return pairsCache.pairs.filter(function (p) { return !state.distinct[pairKey(p)]; });
   }
 
   function prunePending() {
@@ -655,7 +557,8 @@
     var list = clear($('results'));
     $('resultCount').textContent = result.ranked.length ? '(' + result.ranked.length + ')' : '';
     if (!result.ranked.length) list.appendChild(el('li', 'empty', t('noResults')));
-    result.ranked.forEach(function (r) { list.appendChild(resultCard(r)); });
+    result.ranked.slice(0, MAX_LISTED).forEach(function (r) { list.appendChild(resultCard(r)); });
+    if (result.ranked.length > MAX_LISTED) list.appendChild(el('li', 'hint', fmt(t('showingFirst'), { n: MAX_LISTED, total: result.ranked.length })));
     var ex = clear($('excluded'));
     if (result.excluded.length) {
       var box = el('div', 'excluded');
@@ -861,7 +764,8 @@
     var list = clear($('pending'));
     var ids = Object.keys(state.pending);
     if (!ids.length) list.appendChild(el('li', 'empty', t('pendingEmpty')));
-    ids.forEach(function (id) {
+    if (ids.length > MAX_LISTED) list.appendChild(el('li', 'hint', fmt(t('showingFirst'), { n: MAX_LISTED, total: ids.length })));
+    ids.slice(0, MAX_LISTED).forEach(function (id) {
       var s = supplierById(id);
       var li = el('li', 'card');
       li.appendChild(supplierSide(s));
@@ -887,7 +791,8 @@
     var dupes = clear($('dupes'));
     var pairs = reviewPairs();
     if (!pairs.length) dupes.appendChild(el('li', 'empty', t('dupesEmpty')));
-    pairs.forEach(function (p) {
+    if (pairs.length > MAX_LISTED) dupes.appendChild(el('li', 'hint', fmt(t('showingFirst'), { n: MAX_LISTED, total: pairs.length })));
+    pairs.slice(0, MAX_LISTED).forEach(function (p) {
       var a = supplierById(p.a);
       var b = supplierById(p.b);
       var li = el('li', 'card');

@@ -59,6 +59,12 @@
     var weights = Object.assign({}, PRESETS.balanced, need.weights || {});
     var radius = Number(need.radiusKm) > 0 ? Number(need.radiusKm) : 10;
     var byId = Trust.indexById(db.suppliers);
+    var referralIndex = Trust.buildReferralIndex(db.referrals);
+    var quotesBySupplier = new Map();
+    db.quotes.forEach(function (q) {
+      if (!quotesBySupplier.has(q.supplierId)) quotesBySupplier.set(q.supplierId, []);
+      quotesBySupplier.get(q.supplierId).push(q);
+    });
     var candidates = [];
     var excluded = [];
 
@@ -69,8 +75,8 @@
         excluded.push({ supplier: supplier, reason: { code: 'out_of_radius', km: round2(km) } });
         return;
       }
-      var costs = db.quotes
-        .filter(function (q) { return q.supplierId === supplier.id && (!need.category || !q.category || q.category === need.category); })
+      var costs = (quotesBySupplier.get(supplier.id) || [])
+        .filter(function (q) { return !need.category || !q.category || q.category === need.category; })
         .map(function (q) { return { quote: q, cost: Quotes.landedCost(q, need, settings) }; });
       var valid = costs.filter(function (c) { return c.cost.ok; });
       valid.sort(function (x, y) { return x.cost.presentValue - y.cost.presentValue; });
@@ -124,7 +130,7 @@
       }
 
       // trust
-      var trust = Trust.trustScore(s, db.referrals, byId);
+      var trust = Trust.trustScore(s, referralIndex, byId);
       factors.trust = trust.value;
       evidence.push({ code: 'trust', level: trust.level, referrers: trust.referrals.count, mutual: trust.referrals.mutual });
       if (trust.level === 0) warnings.push({ code: 'unverified' });

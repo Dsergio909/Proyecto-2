@@ -21,6 +21,8 @@ test('every script the page loads exists and is one Pages deploys (demo/, src/co
 test('strict Content-Security-Policy: own scripts only, no network calls, no inline code', () => {
   const csp = /http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(html)[1];
   assert.match(csp, /default-src 'none'/);
+  assert.doesNotMatch(csp, /https?:/, 'no third-party origins at all (fonts are self-hosted)');
+  assert.doesNotMatch(html, /<link[^>]+href="https?:/, 'no stylesheet or font from another site');
   assert.match(csp, /script-src 'self'(;|$)/);
   assert.match(csp, /connect-src 'none'/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/);
@@ -37,4 +39,21 @@ test('the core modules the page uses do not touch the network', () => {
     const code = fs.readFileSync(path.join(root, 'src', 'core', file), 'utf8');
     assert.doesNotMatch(code, /fetch\(|XMLHttpRequest|WebSocket|sendBeacon/, file);
   }
+});
+
+test('self-hosted fonts exist, with their licence', () => {
+  const css = fs.readFileSync(path.join(root, 'demo', 'style.css'), 'utf8');
+  const urls = [...css.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1]);
+  assert.equal(urls.length, 3);
+  urls.forEach((u) => assert.ok(fs.existsSync(path.join(root, 'demo', u)), u));
+  assert.ok(fs.readdirSync(path.join(root, 'demo', 'fonts')).some((f) => /^OFL/.test(f)));
+});
+
+test('every interface text exists in Spanish and English', () => {
+  global.window = global;
+  require('../demo/i18n.js');
+  const { es, en } = global.ScoutI18n;
+  const keys = (o, prefix = '') => Object.keys(o).flatMap((k) => (o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) ? keys(o[k], prefix + k + '.') : [prefix + k]));
+  assert.deepEqual(keys(es).sort(), keys(en).sort());
+  assert.equal(es.ways.length, en.ways.length);
 });

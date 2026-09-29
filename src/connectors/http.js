@@ -15,6 +15,32 @@ class HttpError extends Error {
   }
 }
 
+/** Read the body, stopping as soon as it passes the limit instead of buffering it all first. */
+async function readLimited(res, limit) {
+  const declared = Number(res.headers && res.headers.get && res.headers.get('content-length'));
+  if (declared > limit) throw new Error('Response too large');
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const text = await res.text();
+    if (text.length > limit) throw new Error('Response too large');
+    return text;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      throw new Error('Response too large');
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
 async function fetchJson(url, options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   if (typeof fetchImpl !== 'function') throw new Error('fetch is not available (Node 18+ required)');
@@ -27,9 +53,8 @@ async function fetchJson(url, options = {}) {
       body: options.body,
       signal: controller.signal
     });
-    const text = await res.text();
+    const text = await readLimited(res, options.maxBytes || MAX_BYTES);
     if (!res.ok) throw new HttpError(res.status, text);
-    if (text.length > MAX_BYTES) throw new Error('Response too large');
     return JSON.parse(text);
   } finally {
     clearTimeout(timer);
@@ -40,4 +65,4 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-module.exports = { fetchJson, HttpError, USER_AGENT, today };
+module.exports = { fetchJson, readLimited, HttpError, USER_AGENT, MAX_BYTES, today };

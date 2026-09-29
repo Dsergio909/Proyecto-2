@@ -73,8 +73,11 @@ async function runAgent(options) {
     // Run every requested tool, then return ALL results in a single user message.
     const results = await Promise.all(toolUses.map(async (use) => {
       try {
-        const output = await toolbox.run(use.name, use.input);
-        return { type: 'tool_result', tool_use_id: use.id, content: JSON.stringify(output).slice(0, MAX_TOOL_RESULT_CHARS) };
+        const output = JSON.stringify(await toolbox.run(use.name, use.input));
+        const content = output.length > MAX_TOOL_RESULT_CHARS
+          ? output.slice(0, MAX_TOOL_RESULT_CHARS) + ' …[truncated: ask for fewer results]'
+          : output;
+        return { type: 'tool_result', tool_use_id: use.id, content };
       } catch (err) {
         return { type: 'tool_result', tool_use_id: use.id, content: `Error: ${String(err.message).slice(0, 300)}`, is_error: true };
       }

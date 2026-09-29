@@ -28,22 +28,7 @@ const osm = require('../src/connectors/osm');
 const socrata = require('../src/connectors/socrata');
 const places = require('../src/connectors/places');
 const { today } = require('../src/connectors/http');
-
-function parseArgs(argv) {
-  const args = { _: [] };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a.startsWith('--')) {
-      const key = a.slice(2);
-      const next = argv[i + 1];
-      if (next === undefined || next.startsWith('--')) args[key] = true;
-      else { args[key] = next; i++; }
-    } else {
-      args._.push(a);
-    }
-  }
-  return args;
-}
+const { parseArgs } = require('./args');
 
 function database(country, suppliers, extra) {
   return Object.assign(

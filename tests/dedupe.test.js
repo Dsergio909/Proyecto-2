@@ -72,3 +72,26 @@ test('demo data: one automatic merge (same phone) and one case for review (simil
   assert.deepEqual(result.review.map((p) => [p.a, p.b, p.tier]), [['bog-cajas-el-porvenir', 'bog-cajas-porvenir-dir', 'low']]);
   assert.equal(result.db.suppliers.length, db.suppliers.length - 1);
 });
+
+test('tax IDs: only a Colombian NIT drops its check digit; an Argentine CUIT keeps every digit', () => {
+  const cuit = (id, value) => s(id, { taxId: { value, country: 'AR', valid: true } });
+  assert.equal(D.compare(cuit('a', '20-12345678-6'), cuit('b', '20-87654321-4')), null, 'two companies whose CUIT starts with 20');
+  assert.equal(D.compare(cuit('a', '20-12345678-6'), cuit('b', '20123456786')).tier, 'exact');
+  const nit = (id, value) => s(id, { taxId: { value, country: 'CO', valid: value.includes('-') ? true : null } });
+  assert.equal(D.compare(nit('a', '999000101-0'), nit('b', '999000101')).tier, 'exact', 'with and without check digit');
+});
+
+test('duplicate search stays fast at the import limit (2,000 suppliers)', () => {
+  const many = [];
+  for (let i = 0; i < 2000; i++) {
+    many.push(s('s' + i, {
+      name: 'Proveedor Demo ' + (i % 700), phones: ['+57999' + String(1000000 + i).slice(-7)],
+      emails: ['v' + i + '@d' + (i % 900) + '.example'], lat: 4.6 + (i % 50) / 1000, lng: -74.1 + (i % 40) / 1000
+    }));
+  }
+  const start = Date.now();
+  const pairs = D.findDuplicates(many);
+  const ms = Date.now() - start;
+  assert.ok(pairs.length > 0);
+  assert.ok(ms < 5000, `took ${ms} ms (it took ~15 s before features were precomputed)`);
+});

@@ -16,11 +16,19 @@ const Countries = require('../core/countries');
 const { fetchJson, today } = require('./http');
 
 const ENDPOINT = 'https://places.googleapis.com/v1/places:searchText';
+
 const FIELD_MASK = [
   'places.id', 'places.displayName', 'places.formattedAddress', 'places.location', 'places.rating',
   'places.userRatingCount', 'places.nationalPhoneNumber', 'places.internationalPhoneNumber',
   'places.websiteUri', 'places.businessStatus'
 ].join(',');
+
+/** A real coordinate, or null. Number(null) is 0, so null must not become the Gulf of Guinea. */
+function coordinate(value, max) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && Math.abs(n) <= max ? n : null;
+}
 
 function buildRequest({ query, lat, lng, radiusM, languageCode, regionCode, pageSize }, apiKey) {
   if (!apiKey) throw new Error('GOOGLE_PLACES_API_KEY is not set. Places is optional: OSM and CSV work without a key.');
@@ -31,10 +39,12 @@ function buildRequest({ query, lat, lng, radiusM, languageCode, regionCode, page
   };
   if (languageCode) body.languageCode = languageCode;
   if (regionCode) body.regionCode = regionCode;
-  if (isFinite(Number(lat)) && isFinite(Number(lng)) && lat !== undefined && lng !== undefined) {
+  const la = coordinate(lat, 90);
+  const ln = coordinate(lng, 180);
+  if (la !== null && ln !== null) {
     body.locationBias = {
       circle: {
-        center: { latitude: Number(lat), longitude: Number(lng) },
+        center: { latitude: la, longitude: ln },
         radius: Math.min(50000, Math.max(100, Number(radiusM) || 5000))
       }
     };

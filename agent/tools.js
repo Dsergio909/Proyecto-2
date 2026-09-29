@@ -106,11 +106,19 @@ function createToolbox(options) {
     };
   }
 
+  // Suppliers who refused consent for their personal data (Colombia: Law 1581 of 2012)
+  // are ranked locally but never described to the model, which is a third-party service.
+  function shareable(s) {
+    return s.consent !== false;
+  }
+
   function listResult(suppliers, origin, extra) {
+    const visible = suppliers.filter(shareable);
     return Object.assign({
-      count: suppliers.length,
-      without_website: suppliers.filter(Schema.isOffline).length,
-      suppliers: suppliers.slice(0, MAX_LISTED).map((s) => summary(s, origin))
+      count: visible.length,
+      without_website: visible.filter(Schema.isOffline).length,
+      hidden_without_consent: suppliers.length - visible.length,
+      suppliers: visible.slice(0, MAX_LISTED).map((s) => summary(s, origin))
     }, extra || {});
   }
 
@@ -220,7 +228,8 @@ function createToolbox(options) {
         ranking = { need, result, review: merged.review, db: merged.db };
         const ctx = { country };
         return {
-          ranked: result.ranked.slice(0, 10).map((r) => ({
+          hidden_without_consent: result.ranked.filter((r) => !shareable(r.supplier)).length,
+          ranked: result.ranked.filter((r) => shareable(r.supplier)).slice(0, 10).map((r) => ({
             id: r.supplier.id,
             name: short(r.supplier.name, 80),
             score: r.score,
@@ -261,7 +270,7 @@ function createToolbox(options) {
         let drafted = 0;
         (input.supplier_ids || []).slice(0, 10).forEach((id) => {
           const s = byId.get(id);
-          if (!s) { unknown.push(short(id, 60)); return; }
+          if (!s || !shareable(s)) { unknown.push(short(id, 60)); return; }
           const text = Outreach.rfqMessage(need, s.name, lang);
           drafts.push({
             kind: 'quote_request', supplierId: s.id, supplierName: s.name, text,

@@ -28,6 +28,7 @@
   var RANK = { exact: 4, high: 3, medium: 2, low: 1 };
   var NAME_THRESHOLD = 0.8;
   var NEARBY_KM = 0.5;
+  var LAT_KM = 110.5; // km per degree of latitude (lower bound, so the prefilter never drops a near pair)
   var FREE_DOMAINS = [
     'gmail.com', 'hotmail.com', 'hotmail.es', 'outlook.com', 'outlook.es', 'yahoo.com', 'yahoo.es',
     'yahoo.com.mx', 'live.com', 'msn.com', 'icloud.com', 'protonmail.com', 'proton.me', 'aol.com', 'gmx.com',
@@ -47,36 +48,62 @@
     return out.filter(function (d) { return d && FREE_DOMAINS.indexOf(d) === -1; });
   }
 
-  /** Evidence that two records are the same supplier, or null. */
-  function compare(a, b) {
-    var taxA = Trust.taxKey(a);
-    var taxB = Trust.taxKey(b);
-    var validA = a.taxId && a.taxId.valid !== false;
-    var validB = b.taxId && b.taxId.valid !== false;
-    if (taxA && taxB && taxA === taxB) return { tier: 'exact', evidence: [{ code: 'same_tax_id' }] };
-    var conflict = !!(taxA && taxB && validA && validB && taxA !== taxB);
+  /** Everything compare() needs, computed once per record. */
+  function features(supplier) {
+    var coords = Geo.hasCoords(supplier);
+    return {
+      supplier: supplier,
+      tax: Trust.taxKey(supplier),
+      validTax: !!(supplier.taxId && supplier.taxId.valid !== false),
+      phones: supplier.phones || [],
+      emails: supplier.emails || [],
+      domains: domains(supplier),
+      name: Text.nameProfile(supplier.name),
+      city: supplier.city ? Text.normalize(supplier.city) : '',
+      lat: coords ? supplier.lat : null
+    };
+  }
+
+  function compareFeatures(fa, fb) {
+    if (fa.tax && fb.tax && fa.tax === fb.tax) return { tier: 'exact', evidence: [{ code: 'same_tax_id' }], conflict: false };
+    var conflict = !!(fa.tax && fb.tax && fa.validTax && fb.validTax);
 
     var evidence = [];
     var tier = null;
-    if (intersect(a.phones, b.phones).length) { tier = 'high'; evidence.push({ code: 'same_phone' }); }
-    if (intersect(a.emails, b.emails).length) { tier = 'high'; evidence.push({ code: 'same_email' }); }
-    var sharedDomain = intersect(domains(a), domains(b))[0];
+    if (fa.phones.length && fb.phones.length && intersect(fa.phones, fb.phones).length) { tier = 'high'; evidence.push({ code: 'same_phone' }); }
+    if (fa.emails.length && fb.emails.length && intersect(fa.emails, fb.emails).length) { tier = 'high'; evidence.push({ code: 'same_email' }); }
+    var sharedDomain = fa.domains.length && fb.domains.length ? intersect(fa.domains, fb.domains)[0] : null;
     if (!tier && sharedDomain) { tier = 'medium'; evidence.push({ code: 'same_domain', domain: sharedDomain }); }
 
-    var similarity = Text.nameSimilarity(a.name, b.name);
-    var km = Geo.distanceKm(a, b);
-    var sameCity = a.city && b.city && Text.normalize(a.city) === Text.normalize(b.city);
-    var near = km !== null ? km <= NEARBY_KM : sameCity || similarity >= 0.95;
-    if (similarity >= NAME_THRESHOLD && near) {
-      evidence.push({ code: 'similar_name', similarity: Math.round(similarity * 100) / 100, km: km === null ? null : Math.round(km * 100) / 100 });
-      if (!tier) tier = 'low';
+    // Names only matter for records that can be at the same place. A latitude gap
+    // alone rules most pairs out before any distance or similarity is computed.
+    var km = null;
+    var near = null;
+    if (fa.lat !== null && fb.lat !== null) {
+      if (Math.abs(fa.lat - fb.lat) * LAT_KM > NEARBY_KM) near = false;
+      else {
+        km = Geo.distanceKm(fa.supplier, fb.supplier);
+        near = km <= NEARBY_KM;
+      }
+    }
+    // Dice can never exceed 2·min/(a+b): skip names whose lengths are too different to match.
+    var maxSimilarity = fa.name.total + fb.name.total ? (2 * Math.min(fa.name.total, fb.name.total)) / (fa.name.total + fb.name.total) : 0;
+    if (near !== false && (maxSimilarity >= NAME_THRESHOLD || fa.name.key === fb.name.key)) {
+      var similarity = Text.profileSimilarity(fa.name, fb.name);
+      if (near === null) near = (!!fa.city && fa.city === fb.city) || similarity >= 0.95;
+      if (similarity >= NAME_THRESHOLD && near) {
+        evidence.push({ code: 'similar_name', similarity: Math.round(similarity * 100) / 100, km: km === null ? null : Math.round(km * 100) / 100 });
+        if (!tier) tier = 'low';
+      }
     }
     if (!tier) return null;
-    if (conflict) {
-      evidence.push({ code: 'tax_conflict' });
-      return { tier: tier, evidence: evidence, conflict: true };
-    }
-    return { tier: tier, evidence: evidence, conflict: false };
+    if (conflict) evidence.push({ code: 'tax_conflict' });
+    return { tier: tier, evidence: evidence, conflict: conflict };
+  }
+
+  /** Evidence that two records are the same supplier, or null. */
+  function compare(a, b) {
+    return compareFeatures(features(a), features(b));
   }
 
   /**
@@ -84,10 +111,11 @@
    * Each: { a, b, tier, evidence, decision: 'merge' | 'review' }.
    */
   function findDuplicates(suppliers) {
+    var feats = suppliers.map(features);
     var pairs = [];
-    for (var i = 0; i < suppliers.length; i++) {
-      for (var j = i + 1; j < suppliers.length; j++) {
-        var match = compare(suppliers[i], suppliers[j]);
+    for (var i = 0; i < feats.length; i++) {
+      for (var j = i + 1; j < feats.length; j++) {
+        var match = compareFeatures(feats[i], feats[j]);
         if (!match) continue;
         var auto = RANK[match.tier] >= RANK.medium && !match.conflict;
         pairs.push({
@@ -97,14 +125,14 @@
       }
     }
     // Ambiguity: a record with two or more automatic partners goes to review.
-    var autoCount = {};
+    var autoCount = new Map();
     pairs.forEach(function (p) {
       if (p.decision !== 'merge') return;
-      autoCount[p.a] = (autoCount[p.a] || 0) + 1;
-      autoCount[p.b] = (autoCount[p.b] || 0) + 1;
+      autoCount.set(p.a, (autoCount.get(p.a) || 0) + 1);
+      autoCount.set(p.b, (autoCount.get(p.b) || 0) + 1);
     });
     pairs.forEach(function (p) {
-      if (p.decision === 'merge' && (autoCount[p.a] > 1 || autoCount[p.b] > 1)) {
+      if (p.decision === 'merge' && (autoCount.get(p.a) > 1 || autoCount.get(p.b) > 1)) {
         p.decision = 'review';
         p.evidence = p.evidence.concat([{ code: 'ambiguous' }]);
       }
@@ -191,14 +219,16 @@
     var pairs = findDuplicates(db.suppliers);
     var current = db;
     var merged = [];
-    var gone = {};
+    var gone = new Set();
     pairs.forEach(function (p) {
-      if (p.decision !== 'merge' || gone[p.a] || gone[p.b]) return;
+      if (p.decision !== 'merge' || gone.has(p.a) || gone.has(p.b)) return;
       current = applyMerge(current, p.a, p.b);
-      gone[p.b] = true;
+      gone.add(p.b);
       merged.push(p);
     });
-    var review = findDuplicates(current.suppliers).filter(function (p) { return p.decision === 'review'; });
+    // Merging changes the records, so pairs are recomputed; with no merge the first pass is still valid.
+    var remaining = merged.length ? findDuplicates(current.suppliers) : pairs;
+    var review = remaining.filter(function (p) { return p.decision === 'review'; });
     return { db: current, merged: merged, review: review };
   }
 
