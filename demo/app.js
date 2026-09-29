@@ -1,0 +1,1126 @@
+/**
+ * Supplier Scout — browser demo.
+ *
+ * Every decision (ranking, costs, capture parsing, duplicates, trust) comes
+ * from src/core, the same code the CLI, the agent and the tests use. This
+ * file only wires it to the page. All content is rendered with textContent;
+ * the page makes no network requests (CSP connect-src 'none').
+ */
+(function () {
+  'use strict';
+
+  var C = window.ScoutCountries;
+  var Cat = window.ScoutCategories;
+  var Geo = window.ScoutGeo;
+  var Q = window.ScoutQuotes;
+  var Schema = window.ScoutSchema;
+  var Dedupe = window.ScoutDedupe;
+  var Score = window.ScoutScore;
+  var Capture = window.ScoutCapture;
+  var Csv = window.ScoutCsv;
+  var M = window.ScoutMessages;
+  var Out = window.ScoutOutreach;
+  var Sample = window.ScoutSample;
+
+  var STORAGE = 'supplier-scout:v1:';
+  var MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+  var UNITS = ['unidad', 'kg', 'm', 'l', 'docena'];
+  var SOURCE_COLORS = {
+    web: 'var(--blue)', map: 'var(--green)', registry: 'var(--amber)', referral: 'var(--pink)',
+    field: 'var(--violet)', import: 'var(--muted)', agent: 'var(--cyan)'
+  };
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+
+  var I18N = {
+    es: {
+      tagline: '> encuentra proveedores nuevos · también los que no están en internet',
+      dataset: 'Datos de ejemplo',
+      intro: 'Busca proveedores por ubicación, compara el costo real de tu pedido (no solo el precio de lista), pondera las reseñas de forma justa y registra los proveedores que no aparecen en la web: referidos, tarjetas, mensajes de WhatsApp, mapas comunitarios y registros públicos.',
+      fictional: 'Todos los datos son ficticios (dominios .example, teléfonos con prefijo inexistente). Lo que agregues se guarda solo en tu navegador.',
+      kpiTotal: 'Proveedores', kpiOffline: 'Sin página web', kpiReferrals: 'Recomendaciones', kpiReview: 'Por revisar',
+      tabSearch: 'BUSCAR', tabQuotes: 'COTIZACIONES', tabOffline: 'FUERA DE INTERNET', tabReview: 'REVISIÓN', tabData: 'DATOS',
+      needTitle: 'TU NECESIDAD', example: 'Ejemplo', custom: '— personalizado —', category: 'Categoría', item: 'Qué necesitas',
+      quantity: 'Cantidad', unit: 'Unidad', origin: 'Desde', days: 'Lo necesito en (días)', radius: 'Radio:', budget: 'Presupuesto máximo (opcional)',
+      priority: 'Prioridad', weights: 'Ajustar pesos a mano',
+      preset: { balanced: 'Equilibrado', cheapest: 'Más barato', reliable: 'Más confiable', nearest: 'Más cerca', urgent: 'Urgente' },
+      factor: { price: 'Precio', rating: 'Reseñas', distance: 'Distancia', trust: 'Confianza', speed: 'Rapidez' },
+      units: { unidad: 'unidades', kg: 'kg', m: 'metros', l: 'litros', docena: 'docenas' },
+      unitOne: { unidad: 'unidad', kg: 'kg', m: 'metro', l: 'litro', docena: 'docena', galon: 'galón' },
+      radarTitle: 'RADAR', radarHint: 'tú en el centro · anillos cada {n} km', radarNoCoords: '{n} sin ubicación exacta',
+      radarDesc: 'Mapa de proveedores alrededor de {o}',
+      resultsTitle: 'RANKING', why: '¿Por qué este puesto?', rfq: 'Pedir cotización', copy: 'Copiar', copied: '¡Copiado!',
+      whatsapp: 'Abrir en WhatsApp', email: 'Enviar correo', website: 'Web', noWeb: 'SIN PÁGINA',
+      orderTotal: 'Total del pedido', perUnit: 'por unidad', distance: 'Distancia', rating: 'Reseñas', lead: 'Entrega',
+      noQuote: 'sin cotización', none: '—', daysUnit: 'días', excludedTitle: 'Fuera de tu radio y sin envíos:',
+      noResults: 'No hay proveedores de esta categoría. Captura uno en "Fuera de internet" o importa una lista.',
+      rfqHint: 'Borrador para que TÚ lo revises y lo envíes. Nada se envía automáticamente.',
+      quotesTitle: 'COMPARADOR DE COTIZACIONES',
+      quotesHint: 'Cada cotización convertida al costo real de TU pedido: paquetes completos, compra mínima, impuesto, envío y moneda. "Valor hoy" descuenta el plazo de pago con tu tasa de oportunidad.',
+      vat: 'Impuesto a las ventas (%)', monthlyRate: 'Tasa de oportunidad mensual (%)', fxUsd: 'Tasa de cambio USD (manual)',
+      callout: 'El precio de lista más bajo es de {list}, pero el pedido más barato es con {best}: compra mínima, paquetes, impuesto y envío cambian la cuenta.',
+      colSupplier: 'Proveedor', colItem: 'Producto', colListPrice: 'Precio', colPack: 'Presentación', colTax: 'Impuesto',
+      colShipping: 'Envío', colMoq: 'Mínimo', colBuy: 'Compras', colTotal: 'Total', colUnit: 'Por unidad', colTerms: 'Pago (días)',
+      colPv: 'Valor hoy', colLead: 'Entrega (días)', taxIncl: 'incluido', taxExcl: '+ impuesto', noQuotes: 'No hay cotizaciones para esta categoría.',
+      addQuote: 'AGREGAR COTIZACIÓN', packQty: 'Unidades por presentación', taxIncluded: 'El precio ya incluye impuesto', save: 'Guardar',
+      quoteSaved: 'Cotización guardada.',
+      waysTitle: 'CÓMO ENCONTRAR PROVEEDORES QUE NO ESTÁN EN INTERNET',
+      ways: [
+        ['Pregunta a quien ya compra.', 'Tus proveedores actuales y tus colegas saben a quién le compran. Usa el mensaje de referidos de abajo.'],
+        ['Registros públicos.', 'Compras públicas (SECOP en Colombia) y cámaras de comercio listan empresas formales aunque no tengan web. Hay conector.'],
+        ['Mapas comunitarios.', 'OpenStreetMap tiene talleres y locales mapeados a pie, en cualquier país. Hay conector.'],
+        ['Zonas y ferias del sector.', 'Clústeres comerciales (en Bogotá: San Victorino, Ricaurte, El Restrepo…) y listas de expositores. Importa el CSV.'],
+        ['Tarjetas, volantes y WhatsApp.', 'Pega el texto aquí abajo: se extraen nombre, NIT, teléfono, dirección y precios.'],
+        ['Verifica antes de comprar.', 'Dígito de verificación, visita o muestra y recomendaciones independientes suben la confianza.']
+      ],
+      captureTitle: 'CAPTURA DE CAMPO',
+      captureHint: 'Pega el texto de una tarjeta, un volante o un mensaje de WhatsApp. Se procesa aquí, en tu navegador: sin IA y sin internet.',
+      examples: 'Ejemplos:', exCard: 'Tarjeta', exWhatsapp: 'WhatsApp', exFlyer: 'Volante (MX)', captureCountry: 'País',
+      howFound: 'Cómo lo conseguiste', srcField: 'En campo (tarjeta, volante, visita)', srcReferral: 'Me lo recomendaron',
+      referredBy: 'Recomendado por (opcional)', consent: 'Autorizó guardar sus datos (en Colombia, Ley 1581 de 2012)', extract: '▶ EXTRAER',
+      previewTitle: 'LO QUE ENTENDÍ', previewEmpty: 'Pega un texto y pulsa EXTRAER.',
+      fieldLabels: { name: 'Nombre', taxId: 'ID tributario', phones: 'Teléfonos', emails: 'Correos', websites: 'Web', socials: 'Redes', address: 'Dirección', city: 'Ciudad', categories: 'Categoría', prices: 'Precios', terms: 'Condiciones' },
+      conf: { high: 'ALTA', medium: 'MEDIA', low: 'BAJA' }, completeness: 'Datos clave encontrados: {n}%',
+      terms: { leadDays: 'entrega {n} días', paymentDays: 'pago a {n} días', minOrder: 'mínimo {n}', ships: 'hace envíos', shipping: 'envío {n}' },
+      addToReview: 'Agregar a revisión', captureAdded: 'Agregado a REVISIÓN: verifícalo antes de comprarle.',
+      captureNeedsName: 'Falta el nombre: agrégalo al texto (por ejemplo en la primera línea) y vuelve a extraer.',
+      askReferralsTitle: 'PIDE RECOMENDACIONES', askReferralsHint: 'Envíalo a tus proveedores actuales y colegas: es la forma más efectiva de encontrar proveedores sin página web.',
+      networkTitle: 'RED DE RECOMENDACIONES', networkHint: 'Quién recomendó a quién. Las recomendaciones independientes suben la confianza; las autorecomendaciones no cuentan y las mutuas cuentan la mitad.',
+      mutual: 'mutua', noReferrals: 'Aún no hay recomendaciones.',
+      relation: { colleague: 'colega', supplier: 'proveedor', client: 'cliente', other: 'otro' },
+      pendingTitle: 'POR VERIFICAR', pendingHint: 'Proveedores nuevos (capturados o importados). Entran al ranking como "sin verificar" hasta que alguien los revise.',
+      pendingEmpty: 'Nada pendiente. Captura un proveedor en "Fuera de internet" o importa una lista.',
+      markLevel: 'Marcar como:', approve: 'Aprobar', discard: 'Descartar',
+      dupesTitle: 'POSIBLES DUPLICADOS', dupesHint: 'El sistema no adivina: si solo el nombre se parece, decides tú.', dupesEmpty: 'No hay duplicados pendientes.',
+      merge: 'Fusionar', distinct: 'Son distintos', suggestion: { merge: 'sugerido: fusionar', review: 'decide tú' },
+      tiersTitle: 'NIVELES DE CONFIANZA',
+      tierExact: 'Mismo ID tributario → se fusionan.',
+      tierHigh: 'Mismo teléfono o correo → se fusionan (salvo que tengan IDs tributarios distintos).',
+      tierMedium: 'Mismo dominio corporativo (nunca gmail/hotmail) → se fusionan si es único.',
+      tierLow: 'Solo nombre parecido y cercano → siempre revisión humana.',
+      autoMerged: 'Fusionado automáticamente al cargar: "{b}" → "{a}" ({why})',
+      sourcesTitle: 'DE DÓNDE VIENEN', offlineShare: '{p}% no tiene página web',
+      ioTitle: 'IMPORTAR / EXPORTAR',
+      ioHint: 'Importa el JSON del CLI o del agente, o cualquier CSV (lista de feria, cámara de comercio, tu hoja actual). Exporta a CSV para Google Sheets. Los datos se quedan en tu navegador.',
+      importJson: 'Importar JSON', importCsv: 'Importar CSV', exportJson: 'Exportar JSON', exportCsv: 'Exportar CSV (Sheets)', reset: '↺ Reiniciar demo',
+      imported: 'Importados {n} proveedores ({m} fusionados automáticamente). Revísalos en REVISIÓN.',
+      importError: 'No pude leer el archivo: {e}', tooBig: 'Archivo demasiado grande (máximo 2 MB).', resetDone: 'Demo reiniciada.',
+      csvColumns: 'Columnas reconocidas: {c}.',
+      cliTitle: 'CONECTORES Y AGENTE DE IA (EN TU COMPUTADOR)',
+      cliHint: 'Esta página no se conecta a internet. Los conectores (OpenStreetMap, SECOP, Google Places, CSV) y el agente de Claude corren con Node en tu computador y generan un JSON que importas aquí.',
+      footer: 'Datos sintéticos · lógica real en src/core · cubierta por tests'
+    },
+    en: {
+      tagline: '> find new suppliers · even the ones that are not online',
+      dataset: 'Sample data',
+      intro: 'Search suppliers by location, compare the real cost of your order (not just the list price), weigh reviews fairly, and record the suppliers the web does not show: referrals, business cards, WhatsApp messages, community maps and public registries.',
+      fictional: 'All data is fictional (.example domains, phones with an unassigned prefix). Anything you add stays in your browser.',
+      kpiTotal: 'Suppliers', kpiOffline: 'No website', kpiReferrals: 'Referrals', kpiReview: 'To review',
+      tabSearch: 'SEARCH', tabQuotes: 'QUOTES', tabOffline: 'OFFLINE', tabReview: 'REVIEW', tabData: 'DATA',
+      needTitle: 'WHAT YOU NEED', example: 'Example', custom: '— custom —', category: 'Category', item: 'What exactly',
+      quantity: 'Quantity', unit: 'Unit', origin: 'From', days: 'Needed within (days)', radius: 'Radius:', budget: 'Maximum budget (optional)',
+      priority: 'Priority', weights: 'Tune the weights by hand',
+      preset: { balanced: 'Balanced', cheapest: 'Cheapest', reliable: 'Most reliable', nearest: 'Nearest', urgent: 'Urgent' },
+      factor: { price: 'Price', rating: 'Reviews', distance: 'Distance', trust: 'Trust', speed: 'Speed' },
+      units: { unidad: 'units', kg: 'kg', m: 'metres', l: 'litres', docena: 'dozen' },
+      unitOne: { unidad: 'unit', kg: 'kg', m: 'metre', l: 'litre', docena: 'dozen', galon: 'gallon' },
+      radarTitle: 'RADAR', radarHint: 'you are in the centre · rings every {n} km', radarNoCoords: '{n} without an exact location',
+      radarDesc: 'Map of suppliers around {o}',
+      resultsTitle: 'RANKING', why: 'Why this position?', rfq: 'Request a quote', copy: 'Copy', copied: 'Copied!',
+      whatsapp: 'Open in WhatsApp', email: 'Send email', website: 'Website', noWeb: 'NO WEBSITE',
+      orderTotal: 'Order total', perUnit: 'per unit', distance: 'Distance', rating: 'Reviews', lead: 'Lead time',
+      noQuote: 'no quote', none: '—', daysUnit: 'days', excludedTitle: 'Outside your radius and not delivering:',
+      noResults: 'No suppliers in this category. Capture one in "Offline" or import a list.',
+      rfqHint: 'A draft for YOU to review and send. Nothing is sent automatically.',
+      quotesTitle: 'QUOTE COMPARISON',
+      quotesHint: 'Every quote converted into the real cost of YOUR order: whole packs, minimum order, tax, shipping and currency. "Value today" discounts the payment term at your opportunity rate.',
+      vat: 'Sales tax (%)', monthlyRate: 'Monthly opportunity rate (%)', fxUsd: 'USD exchange rate (manual)',
+      callout: 'The lowest list price is from {list}, but the cheapest order is with {best}: minimum order, packs, tax and shipping change the maths.',
+      colSupplier: 'Supplier', colItem: 'Item', colListPrice: 'Price', colPack: 'Pack', colTax: 'Tax',
+      colShipping: 'Shipping', colMoq: 'Minimum', colBuy: 'You buy', colTotal: 'Total', colUnit: 'Per unit', colTerms: 'Pay (days)',
+      colPv: 'Value today', colLead: 'Lead (days)', taxIncl: 'included', taxExcl: '+ tax', noQuotes: 'No quotes for this category yet.',
+      addQuote: 'ADD A QUOTE', packQty: 'Units per pack', taxIncluded: 'Price already includes tax', save: 'Save',
+      quoteSaved: 'Quote saved.',
+      waysTitle: 'HOW TO FIND SUPPLIERS THAT ARE NOT ONLINE',
+      ways: [
+        ['Ask people who already buy.', 'Your current suppliers and colleagues know who they buy from. Use the referral message below.'],
+        ['Public registries.', 'Public procurement (SECOP in Colombia) and chambers of commerce list formal businesses even without a website. Connector included.'],
+        ['Community maps.', 'OpenStreetMap has workshops and shops mapped on foot, in any country. Connector included.'],
+        ['Trade districts and fairs.', 'Commercial clusters (in Bogotá: San Victorino, Ricaurte, El Restrepo…) and exhibitor lists. Import the CSV.'],
+        ['Cards, flyers and WhatsApp.', 'Paste the text below: name, tax ID, phone, address and prices are extracted.'],
+        ['Verify before buying.', 'Check digits, a visit or a sample and independent referrals raise trust.']
+      ],
+      captureTitle: 'FIELD CAPTURE',
+      captureHint: 'Paste the text of a business card, a flyer or a WhatsApp message. It is processed here, in your browser: no AI, no internet.',
+      examples: 'Examples:', exCard: 'Card', exWhatsapp: 'WhatsApp', exFlyer: 'Flyer (MX)', captureCountry: 'Country',
+      howFound: 'How you found them', srcField: 'In the field (card, flyer, visit)', srcReferral: 'Someone recommended them',
+      referredBy: 'Recommended by (optional)', consent: 'They agreed to their data being stored (Colombia: Law 1581 of 2012)', extract: '▶ EXTRACT',
+      previewTitle: 'WHAT I UNDERSTOOD', previewEmpty: 'Paste a text and press EXTRACT.',
+      fieldLabels: { name: 'Name', taxId: 'Tax ID', phones: 'Phones', emails: 'Emails', websites: 'Website', socials: 'Social', address: 'Address', city: 'City', categories: 'Category', prices: 'Prices', terms: 'Terms' },
+      conf: { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }, completeness: 'Key data found: {n}%',
+      terms: { leadDays: 'delivers in {n} days', paymentDays: 'pay in {n} days', minOrder: 'minimum {n}', ships: 'delivers', shipping: 'shipping {n}' },
+      addToReview: 'Add to review', captureAdded: 'Added to REVIEW: verify it before buying.',
+      captureNeedsName: 'Name missing: add it to the text (e.g. on the first line) and extract again.',
+      askReferralsTitle: 'ASK FOR REFERRALS', askReferralsHint: 'Send it to your current suppliers and colleagues: the most effective way to find suppliers without a website.',
+      networkTitle: 'REFERRAL NETWORK', networkHint: 'Who recommended whom. Independent referrals raise trust; self-referrals count for nothing and mutual ones count half.',
+      mutual: 'mutual', noReferrals: 'No referrals yet.',
+      relation: { colleague: 'colleague', supplier: 'supplier', client: 'client', other: 'other' },
+      pendingTitle: 'TO VERIFY', pendingHint: 'New suppliers (captured or imported). They rank as "unverified" until someone reviews them.',
+      pendingEmpty: 'Nothing pending. Capture a supplier in "Offline" or import a list.',
+      markLevel: 'Mark as:', approve: 'Approve', discard: 'Discard',
+      dupesTitle: 'POSSIBLE DUPLICATES', dupesHint: 'The system does not guess: when only the name is similar, you decide.', dupesEmpty: 'No duplicates pending.',
+      merge: 'Merge', distinct: 'They are different', suggestion: { merge: 'suggested: merge', review: 'you decide' },
+      tiersTitle: 'CONFIDENCE TIERS',
+      tierExact: 'Same tax ID → merged.',
+      tierHigh: 'Same phone or email → merged (unless their tax IDs differ).',
+      tierMedium: 'Same corporate domain (never gmail/hotmail) → merged if unique.',
+      tierLow: 'Only a similar name nearby → always human review.',
+      autoMerged: 'Merged automatically on load: "{b}" → "{a}" ({why})',
+      sourcesTitle: 'WHERE THEY COME FROM', offlineShare: '{p}% have no website',
+      ioTitle: 'IMPORT / EXPORT',
+      ioHint: 'Import the JSON from the CLI or the agent, or any CSV (fair exhibitor list, chamber of commerce, your current sheet). Export CSV for Google Sheets. Data stays in your browser.',
+      importJson: 'Import JSON', importCsv: 'Import CSV', exportJson: 'Export JSON', exportCsv: 'Export CSV (Sheets)', reset: '↺ Reset demo',
+      imported: 'Imported {n} suppliers ({m} merged automatically). Check them in REVIEW.',
+      importError: 'Could not read the file: {e}', tooBig: 'File too large (2 MB maximum).', resetDone: 'Demo reset.',
+      csvColumns: 'Columns recognised: {c}.',
+      cliTitle: 'CONNECTORS AND AI AGENT (ON YOUR COMPUTER)',
+      cliHint: 'This page never connects to the internet. The connectors (OpenStreetMap, SECOP, Google Places, CSV) and the Claude agent run with Node on your computer and produce a JSON you import here.',
+      footer: 'Synthetic data · real logic in src/core · covered by tests'
+    }
+  };
+
+  var state = null;
+  var prefs = { lang: /^en/i.test(navigator.language || '') ? 'en' : 'es', datasetId: 'bogota' };
+
+  // ---------- helpers ----------
+
+  function t(key) { return I18N[prefs.lang][key]; }
+  function fmt(template, params) {
+    return String(template).replace(/\{(\w+)\}/g, function (m, k) { return params[k] != null ? params[k] : m; });
+  }
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+  function svg(tag, attrs) {
+    var node = document.createElementNS(SVG_NS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    return node;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
+  function today() { return new Date().toISOString().slice(0, 10); }
+  function dataset() { return Sample.DATASETS[prefs.datasetId]; }
+  function country() { return dataset().country; }
+  function money(amount, currency) { return C.formatMoney(amount, country(), currency); }
+  function unitText(qty, unit) {
+    var word = qty === 1 ? t('unitOne')[unit] : t('units')[unit];
+    return qty + ' ' + (word || unit);
+  }
+  function catLabel(id) { var c = Cat.byId(id); return c ? c.label[prefs.lang] : id; }
+  function supplierById(id) {
+    for (var i = 0; i < state.db.suppliers.length; i++) if (state.db.suppliers[i].id === id) return state.db.suppliers[i];
+    return null;
+  }
+  function uid(prefix) { return prefix + '-' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+  function pairKey(p) { return [p.a, p.b].sort().join('|'); }
+  function explain(item) { return M.explain(item, prefs.lang, { country: country() }); }
+  function option(value, label, selected) {
+    var o = el('option', null, label);
+    o.value = value;
+    if (selected) o.selected = true;
+    return o;
+  }
+  function fillSelect(select, options, selected) {
+    clear(select);
+    options.forEach(function (o) { select.appendChild(option(o.value, o.label, String(o.value) === String(selected))); });
+  }
+  function button(label, cls, onClick) {
+    var b = el('button', cls || 'btn small', label);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function link(href, label) {
+    var a = el('a', 'btn small', label);
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    return a;
+  }
+
+  function copyText(text, trigger) {
+    function done() {
+      var original = trigger.textContent;
+      trigger.textContent = t('copied');
+      setTimeout(function () { trigger.textContent = original; }, 1400);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () {});
+    }
+  }
+
+  function download(name, content, type) {
+    var url = URL.createObjectURL(new Blob([content], { type: type }));
+    var a = el('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // ---------- state & storage ----------
+
+  function readStorage(key) {
+    try { return JSON.parse(window.localStorage.getItem(STORAGE + key) || 'null'); } catch (err) { return null; }
+  }
+  function writeStorage(key, value) {
+    try { window.localStorage.setItem(STORAGE + key, JSON.stringify(value)); } catch (err) { /* private mode: fine */ }
+  }
+  function removeStorage(key) {
+    try { window.localStorage.removeItem(STORAGE + key); } catch (err) { /* ignore */ }
+  }
+
+  function defaultNeed(ds) {
+    var n = ds.needs[0];
+    return { presetId: n.id, category: n.category, item: n.item, quantity: n.quantity, unit: n.unit, originId: n.originId, radiusKm: n.radiusKm, neededInDays: n.neededInDays, budget: null };
+  }
+
+  function freshState() {
+    var ds = dataset();
+    var clean = Schema.sanitizeDatabase(ds);
+    var names = {};
+    clean.suppliers.forEach(function (s) { names[s.id] = s.name; });
+    var merged = Dedupe.autoMerge(clean);
+    return {
+      db: merged.db,
+      autoMerged: merged.merged.map(function (p) {
+        return { a: names[p.a], b: names[p.b], evidence: p.evidence };
+      }),
+      pending: {},
+      distinct: {},
+      need: defaultNeed(ds),
+      preset: 'balanced',
+      weights: Object.assign({}, Score.PRESETS.balanced),
+      settings: { vat: Math.round(C.getProfile(ds.country).vatRate * 1000) / 10, monthlyRate: 1.5, fxUsd: ds.fx.USD },
+      tab: 'search',
+      capture: null,
+      openRfq: null
+    };
+  }
+
+  function loadState() {
+    var saved = readStorage('state:' + prefs.datasetId);
+    var base = freshState();
+    if (saved && saved.db) {
+      base.db = Schema.sanitizeDatabase(saved.db);
+      base.pending = saved.pending || {};
+      base.distinct = saved.distinct || {};
+      base.need = Object.assign(base.need, saved.need || {});
+      base.preset = saved.preset || base.preset;
+      base.weights = Object.assign(base.weights, saved.weights || {});
+      base.settings = Object.assign(base.settings, saved.settings || {});
+      base.tab = saved.tab || base.tab;
+    }
+    state = base;
+  }
+
+  function saveState() {
+    writeStorage('prefs', prefs);
+    writeStorage('state:' + prefs.datasetId, {
+      db: state.db, pending: state.pending, distinct: state.distinct, need: state.need,
+      preset: state.preset, weights: state.weights, settings: state.settings, tab: state.tab
+    });
+  }
+
+  function settings() {
+    return {
+      country: country(),
+      vatRate: (Number(state.settings.vat) || 0) / 100,
+      monthlyRate: (Number(state.settings.monthlyRate) || 0) / 100,
+      fx: { USD: Number(state.settings.fxUsd) || 0 }
+    };
+  }
+
+  function origin() {
+    var list = dataset().origins;
+    for (var i = 0; i < list.length; i++) if (list[i].id === state.need.originId) return list[i];
+    return list[0];
+  }
+
+  function currentNeed() {
+    return {
+      category: state.need.category,
+      item: state.need.item,
+      quantity: Number(state.need.quantity) || 1,
+      unit: state.need.unit,
+      origin: origin(),
+      radiusKm: Number(state.need.radiusKm) || 10,
+      neededInDays: Number(state.need.neededInDays) || null,
+      budget: Number(state.need.budget) || null,
+      weights: state.weights
+    };
+  }
+
+  function reviewPairs() {
+    return Dedupe.findDuplicates(state.db.suppliers).filter(function (p) { return !state.distinct[pairKey(p)]; });
+  }
+
+  function prunePending() {
+    Object.keys(state.pending).forEach(function (id) { if (!supplierById(id)) delete state.pending[id]; });
+  }
+
+  // ---------- static texts ----------
+
+  function applyI18n() {
+    document.documentElement.lang = prefs.lang;
+    document.querySelectorAll('[data-i18n]').forEach(function (node) {
+      var value = t(node.getAttribute('data-i18n'));
+      if (typeof value === 'string') node.textContent = value;
+    });
+    document.querySelectorAll('[data-lang]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === prefs.lang));
+    });
+    fillSelect($('dataset'), Object.keys(Sample.DATASETS).map(function (id) {
+      return { value: id, label: Sample.DATASETS[id].label[prefs.lang] };
+    }), prefs.datasetId);
+    var ways = clear($('ways'));
+    t('ways').forEach(function (w) {
+      var li = el('li');
+      li.appendChild(el('strong', null, w[0]));
+      li.appendChild(document.createTextNode(' ' + w[1]));
+      ways.appendChild(li);
+    });
+  }
+
+  // ---------- KPIs & tabs ----------
+
+  function renderKpis() {
+    var s = state.db.suppliers;
+    var offline = s.filter(Schema.isOffline).length;
+    var toReview = Object.keys(state.pending).length + reviewPairs().length;
+    var items = [
+      [t('kpiTotal'), s.length, 'var(--blue)'],
+      [t('kpiOffline'), offline, 'var(--pink)'],
+      [t('kpiReferrals'), state.db.referrals.length, 'var(--green)'],
+      [t('kpiReview'), toReview, 'var(--amber)']
+    ];
+    var box = clear($('kpis'));
+    items.forEach(function (k) {
+      var d = el('div', 'kpi');
+      d.style.setProperty('--c', k[2]);
+      d.appendChild(el('span', 'l', k[0]));
+      d.appendChild(el('span', 'n', String(k[1])));
+      box.appendChild(d);
+    });
+    $('reviewBadge').textContent = toReview ? String(toReview) : '';
+  }
+
+  function renderTabs() {
+    document.querySelectorAll('[data-tab]').forEach(function (b) {
+      var active = b.getAttribute('data-tab') === state.tab;
+      b.setAttribute('aria-selected', String(active));
+      b.tabIndex = active ? 0 : -1;
+      $('panel-' + b.getAttribute('data-tab')).hidden = !active;
+    });
+  }
+
+  // ---------- 1 · search ----------
+
+  function renderNeedForm() {
+    var ds = dataset();
+    var n = state.need;
+    fillSelect($('needPreset'), [{ value: '', label: t('custom') }].concat(ds.needs.map(function (x) {
+      return { value: x.id, label: x.quantity + ' ' + (t('units')[x.unit] || x.unit) + ' · ' + x.item };
+    })), n.presetId || '');
+    var cats = Cat.CATEGORIES.map(function (c) { return { value: c.id, label: c.label[prefs.lang] }; });
+    fillSelect($('category'), cats, n.category);
+    fillSelect($('referralCategory'), cats, $('referralCategory').value || n.category);
+    var units = UNITS.map(function (u) { return { value: u, label: t('units')[u] }; });
+    fillSelect($('unit'), units, n.unit);
+    fillSelect($('qUnit'), units, n.unit);
+    fillSelect($('origin'), ds.origins.map(function (o) { return { value: o.id, label: o.label }; }), n.originId);
+    $('item').value = n.item || '';
+    $('quantity').value = n.quantity;
+    $('days').value = n.neededInDays || '';
+    $('radius').value = n.radiusKm;
+    $('radiusOut').textContent = n.radiusKm + ' km';
+    $('budget').value = n.budget || '';
+
+    var presets = clear($('presets'));
+    Object.keys(Score.PRESETS).forEach(function (id) {
+      var b = button(t('preset')[id], '', function () {
+        state.preset = id;
+        state.weights = Object.assign({}, Score.PRESETS[id]);
+        render();
+      });
+      b.setAttribute('aria-pressed', String(state.preset === id));
+      presets.appendChild(b);
+    });
+    var sliders = clear($('weightSliders'));
+    Score.FACTORS.forEach(function (f) {
+      var label = el('label');
+      label.appendChild(el('span', null, t('factor')[f]));
+      var input = el('input');
+      input.type = 'range'; input.min = '0'; input.max = '6'; input.step = '1';
+      input.value = state.weights[f];
+      input.setAttribute('aria-label', t('factor')[f]);
+      var out = el('strong', null, String(state.weights[f]));
+      input.addEventListener('input', function () {
+        state.weights[f] = Number(input.value);
+        state.preset = null;
+        out.textContent = input.value;
+        renderResults();
+        saveState();
+      });
+      label.appendChild(input);
+      label.appendChild(out);
+      sliders.appendChild(label);
+    });
+  }
+
+  function renderRadar(result) {
+    var box = clear($('radar'));
+    var o = origin();
+    var radius = Number(state.need.radiusKm) || 10;
+    var size = 320;
+    var c = size / 2;
+    var R = 140;
+    var scale = R / radius;
+    var desc = svg('desc', { id: 'radarDesc' });
+    desc.textContent = fmt(t('radarDesc'), { o: o.label });
+    box.appendChild(desc);
+    [1, 2, 3].forEach(function (i) {
+      box.appendChild(svg('circle', { cx: c, cy: c, r: (R * i) / 3, fill: 'none', stroke: 'var(--line)', 'stroke-width': 2, 'stroke-dasharray': '4 4' }));
+    });
+    box.appendChild(svg('line', { x1: c, y1: c - R - 8, x2: c, y2: c + R + 8, stroke: 'var(--line)', 'stroke-width': 1 }));
+    box.appendChild(svg('line', { x1: c - R - 8, y1: c, x2: c + R + 8, y2: c, stroke: 'var(--line)', 'stroke-width': 1 }));
+    var sweep = svg('g', { class: 'sweep' });
+    sweep.appendChild(svg('line', { x1: c, y1: c, x2: c, y2: c - R, stroke: 'var(--green)', 'stroke-width': 2, opacity: 0.35 }));
+    box.appendChild(sweep);
+
+    var noCoords = 0;
+    var points = result.ranked.map(function (r) { return { r: r, excluded: false }; })
+      .concat(result.excluded.map(function (x) { return { r: { supplier: x.supplier }, excluded: true }; }));
+    points.forEach(function (p) {
+      var s = p.r.supplier;
+      var off = Geo.offsetKm(o, s);
+      if (!off) { noCoords++; return; }
+      var dx = off.x * scale;
+      var dy = -off.y * scale;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len > R + 6) { dx = (dx / len) * (R + 6); dy = (dy / len) * (R + 6); }
+      var x = Math.round(c + dx - 4);
+      var y = Math.round(c + dy - 4);
+      var color = SOURCE_COLORS[(s.sources[0] || {}).type] || 'var(--muted)';
+      var g = svg('g', {});
+      var title = svg('title', {});
+      var km = Geo.distanceKm(o, s);
+      title.textContent = s.name + ' · ' + M.formatKm(km) + (p.r.rank ? ' · #' + p.r.rank : '');
+      g.appendChild(title);
+      g.appendChild(svg('rect', p.excluded
+        ? { x: x, y: y, width: 8, height: 8, fill: 'none', stroke: color, 'stroke-width': 2, opacity: 0.5 }
+        : { x: x, y: y, width: 8, height: 8, fill: color }));
+      if (p.r.rank && p.r.rank <= 3) {
+        var label = svg('text', { x: x + 11, y: y + 8, fill: 'var(--text)', 'font-family': 'Press Start 2P, monospace', 'font-size': 8 });
+        label.textContent = String(p.r.rank);
+        g.appendChild(label);
+      }
+      box.appendChild(g);
+    });
+    box.appendChild(svg('rect', { x: c - 5, y: c - 5, width: 10, height: 10, fill: 'var(--bg)', stroke: 'var(--text)', 'stroke-width': 2 }));
+    box.appendChild(svg('rect', { x: c - 2, y: c - 2, width: 4, height: 4, fill: 'var(--pink)' }));
+    var hint = fmt(t('radarHint'), { n: Math.round((radius / 3) * 10) / 10 });
+    $('radarHint').textContent = noCoords ? hint + ' · ' + fmt(t('radarNoCoords'), { n: noCoords }) : hint;
+
+    var legend = clear($('sourceLegend'));
+    Object.keys(SOURCE_COLORS).forEach(function (type) {
+      var li = el('li');
+      var dot = el('i', 'dot');
+      dot.style.setProperty('--c', SOURCE_COLORS[type]);
+      li.appendChild(dot);
+      li.appendChild(document.createTextNode(M.SOURCES[prefs.lang][type]));
+      legend.appendChild(li);
+    });
+  }
+
+  function sourceChips(s) {
+    var wrap = el('div', 'chips');
+    var seen = {};
+    (s.sources || []).forEach(function (src) {
+      if (seen[src.type]) return;
+      seen[src.type] = true;
+      var chip = el('span', 'chip src', M.SOURCES[prefs.lang][src.type].toUpperCase());
+      chip.style.setProperty('--c', SOURCE_COLORS[src.type]);
+      chip.title = src.ref || '';
+      wrap.appendChild(chip);
+    });
+    if (Schema.isOffline(s)) wrap.appendChild(el('span', 'chip offline', t('noWeb')));
+    wrap.appendChild(el('span', 'chip level', M.LEVELS[prefs.lang][s.verification || 0]));
+    return wrap;
+  }
+
+  function outreachBlock(s) {
+    var need = currentNeed();
+    var text = Out.rfqMessage({ category: need.category, item: need.item, quantity: need.quantity, unit: need.unit, neededInDays: need.neededInDays, deliveryZone: origin().label }, s.name, prefs.lang);
+    var box = el('div', 'outreach');
+    box.appendChild(el('p', 'hint', t('rfqHint')));
+    var pre = el('pre', 'message', text);
+    box.appendChild(pre);
+    var actions = el('div', 'actions');
+    var copyBtn = button(t('copy'), 'btn small', function () { copyText(text, copyBtn); });
+    actions.appendChild(copyBtn);
+    var wa = s.phones && s.phones[0] ? Out.whatsappLink(s.phones[0], text) : null;
+    if (wa) actions.appendChild(link(wa, t('whatsapp')));
+    if (s.emails && s.emails[0]) {
+      actions.appendChild(link('mailto:' + encodeURIComponent(s.emails[0]).replace('%40', '@') + '?subject=' + encodeURIComponent(t('rfq')) + '&body=' + encodeURIComponent(text), t('email')));
+    }
+    if (s.websites && s.websites[0]) {
+      var url = Schema.cleanUrl(s.websites[0]);
+      if (url) actions.appendChild(link(url, t('website')));
+    }
+    box.appendChild(actions);
+    return box;
+  }
+
+  function resultCard(r) {
+    var s = r.supplier;
+    var li = el('li', 'card' + (r.rank <= 3 ? ' podium' : ''));
+    var head = el('div', 'card-head');
+    var title = el('div', 'card-title');
+    title.appendChild(el('span', 'rank', '#' + r.rank));
+    var nameBox = el('div');
+    nameBox.appendChild(el('div', 'name', s.name));
+    nameBox.appendChild(sourceChips(s));
+    title.appendChild(nameBox);
+    head.appendChild(title);
+    var score = el('div', 'score');
+    score.appendChild(el('span', 'n', String(r.score)));
+    var meter = el('div', 'meter');
+    meter.setAttribute('aria-hidden', 'true');
+    for (var i = 1; i <= 10; i++) meter.appendChild(el('i', i * 10 <= r.score + 5 ? 'on' : ''));
+    score.appendChild(meter);
+    head.appendChild(score);
+    li.appendChild(head);
+
+    var facts = el('div', 'facts');
+    function fact(label, value) {
+      var d = el('div');
+      d.appendChild(el('span', null, label));
+      d.appendChild(el('strong', null, value));
+      facts.appendChild(d);
+    }
+    fact(t('orderTotal'), r.cost ? money(r.cost.total) : t('noQuote'));
+    fact(t('perUnit'), r.cost ? money(r.cost.unitCost) : t('none'));
+    fact(t('distance'), r.km === null ? t('none') : M.formatKm(r.km));
+    fact(t('rating'), r.rating.value.toFixed(1) + ' / 5');
+    li.appendChild(facts);
+
+    var bars = el('div', 'factor-bars');
+    Score.FACTORS.forEach(function (f) {
+      var d = el('div');
+      d.appendChild(el('span', null, t('factor')[f]));
+      var b = el('b');
+      var fill = el('i');
+      fill.style.width = Math.round(r.factors[f] * 100) + '%';
+      b.appendChild(fill);
+      d.appendChild(b);
+      bars.appendChild(d);
+    });
+    li.appendChild(bars);
+
+    var why = el('details', 'why');
+    why.appendChild(el('summary', null, t('why') + (r.warnings.length ? ' (' + r.warnings.length + ' ⚠)' : '')));
+    var ul = el('ul');
+    r.evidence.forEach(function (e) { ul.appendChild(el('li', null, explain(e))); });
+    r.warnings.forEach(function (w) { ul.appendChild(el('li', 'warn', '⚠ ' + explain(w))); });
+    why.appendChild(ul);
+    li.appendChild(why);
+
+    var actions = el('div', 'actions');
+    actions.appendChild(button(t('rfq'), 'btn small', function () {
+      state.openRfq = state.openRfq === s.id ? null : s.id;
+      renderResults();
+    }));
+    li.appendChild(actions);
+    if (state.openRfq === s.id) li.appendChild(outreachBlock(s));
+    return li;
+  }
+
+  function renderResults() {
+    var result = Score.rankSuppliers(state.db, currentNeed(), settings());
+    var list = clear($('results'));
+    $('resultCount').textContent = result.ranked.length ? '(' + result.ranked.length + ')' : '';
+    if (!result.ranked.length) list.appendChild(el('li', 'empty', t('noResults')));
+    result.ranked.forEach(function (r) { list.appendChild(resultCard(r)); });
+    var ex = clear($('excluded'));
+    if (result.excluded.length) {
+      var box = el('div', 'excluded');
+      box.appendChild(el('span', null, t('excludedTitle')));
+      var ul = el('ul');
+      result.excluded.forEach(function (x) { ul.appendChild(el('li', null, x.supplier.name + ' — ' + explain(x.reason))); });
+      box.appendChild(ul);
+      ex.appendChild(box);
+    }
+    renderRadar(result);
+    return result;
+  }
+
+  // ---------- 2 · quotes ----------
+
+  function renderQuotes() {
+    $('vat').value = state.settings.vat;
+    $('monthlyRate').value = state.settings.monthlyRate;
+    $('fxUsd').value = state.settings.fxUsd;
+    var need = currentNeed();
+    var quotes = state.db.quotes.filter(function (q) { return q.category === need.category && supplierById(q.supplierId); });
+    var cmp = Q.compareQuotes(quotes, need, settings());
+    var table = clear($('quoteTable'));
+    var cols = ['colSupplier', 'colItem', 'colListPrice', 'colPack', 'colTax', 'colShipping', 'colMoq', 'colBuy', 'colTotal', 'colUnit', 'colTerms', 'colPv', 'colLead'];
+    var thead = el('thead');
+    var hr = el('tr');
+    cols.forEach(function (k) { hr.appendChild(el('th', null, t(k))); });
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    var tbody = el('tbody');
+    function row(entry, cls) {
+      var q = entry.quote;
+      var c = entry.cost;
+      var tr = el('tr', cls);
+      var cells = [
+        (supplierById(q.supplierId) || {}).name, q.item || t('none'),
+        money(q.price, q.currency), unitText(q.per.qty, q.per.unit), q.taxIncluded ? t('taxIncl') : t('taxExcl'),
+        money(q.shipping || 0, q.currency), q.minOrder ? unitText(q.minOrder.qty, q.minOrder.unit) : t('none'),
+        c.ok ? c.packs + ' × ' + q.per.qty + ' = ' + c.purchased : t('none'), c.ok ? money(c.total) : explain(c.warnings[0]),
+        c.ok ? money(c.unitCost) : t('none'), String(q.paymentDays || 0), c.ok ? money(c.presentValue) : t('none'),
+        q.leadDays == null ? t('none') : String(q.leadDays)
+      ];
+      cells.forEach(function (v, i) { tr.appendChild(el('td', i >= 2 && i !== 3 && i !== 4 ? 'num' : null, v)); });
+      tbody.appendChild(tr);
+    }
+    cmp.ranked.forEach(function (entry) {
+      row(entry, (entry.cheapestTotal ? 'best' : '') + (entry.cheapestListPrice && !entry.cheapestTotal ? ' list-cheapest' : ''));
+    });
+    cmp.invalid.forEach(function (entry) { row(entry, 'invalid'); });
+    if (!quotes.length) {
+      var tr = el('tr');
+      var td = el('td', 'empty', t('noQuotes'));
+      td.colSpan = cols.length;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+
+    var callout = $('quoteCallout');
+    callout.hidden = !cmp.listPriceMisleads;
+    if (cmp.listPriceMisleads) {
+      var listRow = cmp.ranked.filter(function (r) { return r.cheapestListPrice; })[0];
+      callout.textContent = fmt(t('callout'), {
+        list: supplierById(listRow.quote.supplierId).name,
+        best: supplierById(cmp.ranked[0].quote.supplierId).name
+      });
+    }
+
+    var inCategory = state.db.suppliers.filter(function (s) { return s.categories.indexOf(need.category) !== -1; });
+    fillSelect($('qSupplier'), (inCategory.length ? inCategory : state.db.suppliers).map(function (s) {
+      return { value: s.id, label: s.name };
+    }), $('qSupplier').value);
+  }
+
+  // ---------- 3 · offline ----------
+
+  function renderCapturePreview() {
+    var box = clear($('capturePreview'));
+    var cap = state.capture;
+    if (!cap) { box.appendChild(el('p', 'empty', t('previewEmpty'))); return; }
+    var d = cap.draft;
+    var labels = t('fieldLabels');
+    var fields = el('div', 'fields');
+    function field(key, value, conf) {
+      var row = el('div', 'field');
+      row.appendChild(el('span', null, labels[key]));
+      row.appendChild(el('span', null, value || t('none')));
+      if (conf && value) row.appendChild(el('span', 'chip ' + (conf === 'high' ? 'exact' : conf), t('conf')[conf]));
+      else row.appendChild(el('span'));
+      fields.appendChild(row);
+    }
+    field('name', d.name, cap.confidence.name);
+    field('taxId', d.taxId ? d.taxId.label + ' ' + d.taxId.value + (d.taxId.valid === true ? ' ✓' : d.taxId.valid === false ? ' ✗' : '') : null, cap.confidence.taxId);
+    field('phones', d.phones.join(', '), cap.confidence.phones);
+    field('emails', d.emails.join(', '), cap.confidence.emails);
+    field('websites', d.websites.join(', '));
+    field('socials', d.socials.join(', '));
+    field('address', d.address, cap.confidence.address);
+    field('city', d.city);
+    field('categories', d.categories.map(catLabel).join(', '), cap.confidence.categories);
+    field('prices', d.prices.map(function (p) {
+      return (p.item ? p.item + ': ' : '') + C.formatMoney(p.price, d.country, p.currency) + ' / ' + unitText(p.per.qty, p.per.unit) +
+        (p.taxIncluded === true ? ' (' + t('taxIncl') + ')' : p.taxIncluded === false ? ' (' + t('taxExcl') + ')' : '');
+    }).join(' · '));
+    var terms = t('terms');
+    field('terms', [
+      d.leadDays != null ? fmt(terms.leadDays, { n: d.leadDays }) : null,
+      d.paymentDays != null ? fmt(terms.paymentDays, { n: d.paymentDays }) : null,
+      d.minOrder ? fmt(terms.minOrder, { n: d.minOrder.qty + ' ' + d.minOrder.unit }) : null,
+      d.ships ? terms.ships : null,
+      d.shipping != null ? fmt(terms.shipping, { n: C.formatMoney(d.shipping, d.country) }) : null
+    ].filter(Boolean).join(' · '));
+    box.appendChild(fields);
+    box.appendChild(el('p', 'hint', fmt(t('completeness'), { n: Math.round(cap.completeness * 100) })));
+    if (cap.warnings.length) {
+      var ul = el('ul', 'warnings');
+      cap.warnings.forEach(function (w) { ul.appendChild(el('li', null, explain(w))); });
+      box.appendChild(ul);
+    }
+    var add = button(t('addToReview'), 'btn primary', addCapture);
+    box.appendChild(add);
+    box.appendChild(el('p', 'status-line', state.captureStatus || ''));
+  }
+
+  function addCapture() {
+    var cap = state.capture;
+    var d = cap.draft;
+    if (!d.name) { state.captureStatus = t('captureNeedsName'); renderCapturePreview(); return; }
+    var id = uid('cap');
+    var source = $('captureSource').value === 'referral' ? 'referral' : 'field';
+    var referrer = $('captureReferrer').value.trim().slice(0, 80);
+    var categories = d.categories.length ? d.categories : [state.need.category];
+    var supplier = Schema.sanitizeSupplier({
+      id: id, name: d.name, categories: categories, taxId: d.taxId, phones: d.phones, emails: d.emails,
+      websites: d.websites, socials: d.socials, address: d.address, city: d.city, country: d.country,
+      ships: d.ships, leadDays: d.leadDays,
+      sources: [{ type: source, ref: source === 'referral' ? (referrer || 'referido') : 'captura de campo', at: today() }],
+      verification: 0, consent: $('captureConsent').checked ? true : null
+    }, 0);
+    state.db.suppliers.push(supplier);
+    d.prices.forEach(function (p, i) {
+      var quote = Schema.sanitizeQuote({
+        id: id + '-q' + i, supplierId: id, category: categories[0], item: p.item, price: p.price, currency: p.currency,
+        per: p.per, taxIncluded: p.taxIncluded === true, shipping: d.shipping || 0,
+        minOrder: d.minOrder && d.minOrder.resolved ? { qty: d.minOrder.qty, unit: d.minOrder.unit } : null,
+        leadDays: d.leadDays, paymentDays: d.paymentDays || 0, at: today()
+      }, i);
+      if (quote) state.db.quotes.push(quote);
+    });
+    if (referrer) {
+      state.db.referrals.push(Schema.sanitizeReferral({
+        id: uid('ref'), from: 'person:' + referrer.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30), fromLabel: referrer,
+        to: id, relation: 'colleague', at: today()
+      }, 0));
+    }
+    state.pending[id] = { reason: 'capture', at: today() };
+    state.captureStatus = t('captureAdded');
+    render();
+  }
+
+  function renderOffline() {
+    var profiles = Object.keys(C.PROFILES).map(function (code) { return { value: code, label: C.PROFILES[code].name[prefs.lang] }; });
+    fillSelect($('captureCountry'), profiles, $('captureCountry').value || country());
+    fillSelect($('captureSource'), [{ value: 'field', label: t('srcField') }, { value: 'referral', label: t('srcReferral') }], $('captureSource').value || 'field');
+    renderCapturePreview();
+    $('referralMessage').textContent = Out.referralRequest($('referralCategory').value || state.need.category, prefs.lang);
+
+    var net = clear($('network'));
+    if (!state.db.referrals.length) net.appendChild(el('li', 'empty', t('noReferrals')));
+    state.db.referrals.forEach(function (r) {
+      var from = supplierById(r.from);
+      var to = supplierById(r.to);
+      if (!to) return;
+      var mutual = state.db.referrals.some(function (b) { return b.from === r.to && b.to === r.from; });
+      var li = el('li', 'row');
+      var left = el('span');
+      left.appendChild(document.createTextNode((from ? from.name : r.fromLabel || r.from) + ' '));
+      left.appendChild(el('span', 'arrow', '→'));
+      left.appendChild(document.createTextNode(' ' + to.name));
+      li.appendChild(left);
+      var chips = el('span', 'chips');
+      chips.appendChild(el('span', 'chip level', t('relation')[r.relation] || r.relation));
+      if (mutual) chips.appendChild(el('span', 'chip warn', t('mutual')));
+      li.appendChild(chips);
+      net.appendChild(li);
+    });
+  }
+
+  // ---------- 4 · review ----------
+
+  function supplierSide(s) {
+    var side = el('div', 'side');
+    side.appendChild(el('strong', null, s.name));
+    side.appendChild(sourceChips(s));
+    if (s.taxId) side.appendChild(el('span', null, s.taxId.label + ' ' + s.taxId.value));
+    if (s.phones.length) side.appendChild(el('span', null, s.phones.join(', ')));
+    if (s.address || s.city) side.appendChild(el('span', null, [s.address, s.city].filter(Boolean).join(', ')));
+    return side;
+  }
+
+  function renderReview() {
+    prunePending();
+    var list = clear($('pending'));
+    var ids = Object.keys(state.pending);
+    if (!ids.length) list.appendChild(el('li', 'empty', t('pendingEmpty')));
+    ids.forEach(function (id) {
+      var s = supplierById(id);
+      var li = el('li', 'card');
+      li.appendChild(supplierSide(s));
+      var actions = el('div', 'actions');
+      actions.appendChild(el('span', 'hint', t('markLevel')));
+      [1, 2, 3].forEach(function (level) {
+        var b = button(M.LEVELS[prefs.lang][level], 'btn small', function () { s.verification = level; render(); });
+        b.setAttribute('aria-pressed', String(s.verification === level));
+        actions.appendChild(b);
+      });
+      actions.appendChild(button(t('approve'), 'btn small primary', function () { delete state.pending[id]; render(); }));
+      actions.appendChild(button(t('discard'), 'btn small danger', function () {
+        state.db.suppliers = state.db.suppliers.filter(function (x) { return x.id !== id; });
+        state.db.quotes = state.db.quotes.filter(function (q) { return q.supplierId !== id; });
+        state.db.referrals = state.db.referrals.filter(function (r) { return r.to !== id && r.from !== id; });
+        delete state.pending[id];
+        render();
+      }));
+      li.appendChild(actions);
+      list.appendChild(li);
+    });
+
+    var dupes = clear($('dupes'));
+    var pairs = reviewPairs();
+    if (!pairs.length) dupes.appendChild(el('li', 'empty', t('dupesEmpty')));
+    pairs.forEach(function (p) {
+      var a = supplierById(p.a);
+      var b = supplierById(p.b);
+      var li = el('li', 'card');
+      var head = el('div', 'chips');
+      head.appendChild(el('span', 'chip ' + p.tier, p.tier.toUpperCase()));
+      head.appendChild(el('span', 'hint', t('suggestion')[p.decision]));
+      li.appendChild(head);
+      var pair = el('div', 'pair');
+      pair.appendChild(supplierSide(a));
+      pair.appendChild(supplierSide(b));
+      li.appendChild(pair);
+      var ul = el('ul', 'warnings');
+      p.evidence.forEach(function (e) { ul.appendChild(el('li', null, explain(e))); });
+      li.appendChild(ul);
+      var actions = el('div', 'actions');
+      actions.appendChild(button(t('merge'), 'btn small primary', function () {
+        state.db = Dedupe.applyMerge(state.db, p.a, p.b);
+        if (state.pending[p.b]) { state.pending[p.a] = state.pending[p.b]; delete state.pending[p.b]; }
+        render();
+      }));
+      actions.appendChild(button(t('distinct'), 'btn small', function () { state.distinct[pairKey(p)] = true; render(); }));
+      li.appendChild(actions);
+      dupes.appendChild(li);
+    });
+
+    var log = clear($('mergeLog'));
+    state.autoMerged.forEach(function (m) {
+      log.appendChild(el('li', null, fmt(t('autoMerged'), { a: m.a, b: m.b, why: m.evidence.map(explain).join(' ') })));
+    });
+  }
+
+  // ---------- 5 · data ----------
+
+  function renderData() {
+    var s = state.db.suppliers;
+    var counts = {};
+    s.forEach(function (x) {
+      var seen = {};
+      x.sources.forEach(function (src) {
+        if (seen[src.type]) return;
+        seen[src.type] = true;
+        counts[src.type] = (counts[src.type] || 0) + 1;
+      });
+    });
+    var ul = clear($('sourceStats'));
+    Object.keys(SOURCE_COLORS).forEach(function (type) {
+      var li = el('li');
+      li.appendChild(el('span', null, M.SOURCES[prefs.lang][type]));
+      var b = el('b');
+      var fill = el('i');
+      fill.style.setProperty('--c', SOURCE_COLORS[type]);
+      fill.style.width = s.length ? Math.round(((counts[type] || 0) / s.length) * 100) + '%' : '0';
+      b.appendChild(fill);
+      li.appendChild(b);
+      li.appendChild(el('strong', null, String(counts[type] || 0)));
+      ul.appendChild(li);
+    });
+    var offline = s.filter(Schema.isOffline).length;
+    ul.appendChild(el('li', 'hint', fmt(t('offlineShare'), { p: s.length ? Math.round((offline / s.length) * 100) : 0 })));
+  }
+
+  function prefixIds(db, prefix) {
+    function re(id) { return id && id.indexOf('person:') !== 0 ? prefix + id : id; }
+    return {
+      suppliers: db.suppliers.map(function (s) { return Object.assign({}, s, { id: re(s.id) }); }),
+      quotes: db.quotes.map(function (q) { return Object.assign({}, q, { id: re(q.id), supplierId: re(q.supplierId) }); }),
+      referrals: db.referrals.map(function (r) { return Object.assign({}, r, { id: re(r.id), from: re(r.from), to: re(r.to) }); })
+    };
+  }
+
+  function importDb(incoming) {
+    var fresh = prefixIds(Schema.sanitizeDatabase(incoming), uid('imp') + '-');
+    var combined = Schema.sanitizeDatabase({
+      country: state.db.country,
+      suppliers: state.db.suppliers.concat(fresh.suppliers),
+      quotes: state.db.quotes.concat(fresh.quotes),
+      referrals: state.db.referrals.concat(fresh.referrals)
+    });
+    var before = combined.suppliers.length;
+    var result = Dedupe.autoMerge(combined);
+    state.db = result.db;
+    fresh.suppliers.forEach(function (s) { state.pending[s.id] = { reason: 'import', at: today() }; });
+    prunePending();
+    return { added: fresh.suppliers.length, merged: before - result.db.suppliers.length };
+  }
+
+  function readFile(input, onText) {
+    var file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > MAX_IMPORT_BYTES) { $('ioStatus').textContent = t('tooBig'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      try { onText(String(reader.result), file.name); } catch (err) { $('ioStatus').textContent = fmt(t('importError'), { e: err.message }); }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------- render & events ----------
+
+  function render() {
+    applyI18n();
+    renderKpis();
+    renderTabs();
+    renderNeedForm();
+    renderResults();
+    renderQuotes();
+    renderOffline();
+    renderReview();
+    renderData();
+    saveState();
+  }
+
+  function onNeedChange(field, value) {
+    state.need[field] = value;
+    state.need.presetId = '';
+    render();
+  }
+
+  function bind() {
+    document.querySelectorAll('[data-lang]').forEach(function (b) {
+      b.addEventListener('click', function () { prefs.lang = b.getAttribute('data-lang'); render(); });
+    });
+    $('dataset').addEventListener('change', function () {
+      saveState();
+      prefs.datasetId = $('dataset').value;
+      loadState();
+      render();
+    });
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('[data-tab]'));
+    tabs.forEach(function (b, i) {
+      b.addEventListener('click', function () { state.tab = b.getAttribute('data-tab'); render(); });
+      b.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        var next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+        state.tab = next.getAttribute('data-tab');
+        render();
+        next.focus();
+      });
+    });
+
+    $('needPreset').addEventListener('change', function () {
+      var id = $('needPreset').value;
+      var n = dataset().needs.filter(function (x) { return x.id === id; })[0];
+      if (n) state.need = { presetId: n.id, category: n.category, item: n.item, quantity: n.quantity, unit: n.unit, originId: n.originId, radiusKm: n.radiusKm, neededInDays: n.neededInDays, budget: null };
+      render();
+    });
+    $('category').addEventListener('change', function () { onNeedChange('category', $('category').value); });
+    $('item').addEventListener('change', function () { onNeedChange('item', $('item').value.slice(0, 120)); });
+    $('quantity').addEventListener('change', function () { onNeedChange('quantity', Math.max(0, Number($('quantity').value) || 1)); });
+    $('unit').addEventListener('change', function () { onNeedChange('unit', $('unit').value); });
+    $('origin').addEventListener('change', function () { onNeedChange('originId', $('origin').value); });
+    $('days').addEventListener('change', function () { onNeedChange('neededInDays', Number($('days').value) || null); });
+    $('budget').addEventListener('change', function () { onNeedChange('budget', Number($('budget').value) || null); });
+    $('radius').addEventListener('input', function () {
+      state.need.radiusKm = Number($('radius').value);
+      $('radiusOut').textContent = state.need.radiusKm + ' km';
+      renderResults();
+    });
+    $('radius').addEventListener('change', function () { render(); });
+    $('needForm').addEventListener('submit', function (e) { e.preventDefault(); });
+
+    ['vat', 'monthlyRate', 'fxUsd'].forEach(function (id) {
+      $(id).addEventListener('change', function () { state.settings[id] = Math.max(0, Number($(id).value) || 0); render(); });
+    });
+    $('quoteForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var need = currentNeed();
+      var moq = Number($('qMoq').value);
+      var quote = Schema.sanitizeQuote({
+        id: uid('q'), supplierId: $('qSupplier').value, category: need.category, item: need.item,
+        price: Number($('qPrice').value), currency: C.getProfile(country()).currency,
+        per: { qty: Number($('qPack').value) || 1, unit: $('qUnit').value }, taxIncluded: $('qTax').checked,
+        shipping: Number($('qShipping').value) || 0, minOrder: moq ? { qty: moq, unit: $('qUnit').value } : null,
+        leadDays: $('qLead').value === '' ? null : Number($('qLead').value), paymentDays: Number($('qTerms').value) || 0, at: today()
+      }, 0);
+      if (!quote) return;
+      state.db.quotes.push(quote);
+      $('quoteForm').reset();
+      render();
+    });
+
+    document.querySelectorAll('[data-example]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var key = b.getAttribute('data-example');
+        $('captureText').value = Sample.CAPTURE_EXAMPLES[key];
+        $('captureCountry').value = key === 'flyer' ? 'MX' : 'CO';
+        $('captureSource').value = 'field';
+        $('captureReferrer').value = '';
+      });
+    });
+    $('extract').addEventListener('click', function () {
+      state.capture = Capture.parseCapture($('captureText').value, { country: $('captureCountry').value });
+      state.captureStatus = '';
+      renderCapturePreview();
+    });
+    $('referralCategory').addEventListener('change', function () { renderOffline(); });
+    $('copyReferral').addEventListener('click', function () { copyText($('referralMessage').textContent, $('copyReferral')); });
+
+    $('importJson').addEventListener('change', function () {
+      readFile($('importJson'), function (text) {
+        var r = importDb(JSON.parse(text));
+        $('ioStatus').textContent = fmt(t('imported'), { n: r.added, m: r.merged });
+        render();
+      });
+    });
+    $('importCsv').addEventListener('change', function () {
+      readFile($('importCsv'), function (text, name) {
+        var out = Csv.importSuppliers(text, { country: country(), source: 'import', ref: name.slice(0, 80), today: today() });
+        var r = importDb({ suppliers: out.suppliers });
+        $('ioStatus').textContent = fmt(t('imported'), { n: r.added, m: r.merged }) + ' ' + fmt(t('csvColumns'), { c: Object.keys(out.mapping).join(', ') || '—' });
+        render();
+      });
+    });
+    $('exportJson').addEventListener('click', function () {
+      var db = { version: 1, country: country(), suppliers: state.db.suppliers, quotes: state.db.quotes, referrals: state.db.referrals };
+      download('supplier-scout-' + prefs.datasetId + '.json', JSON.stringify(db, null, 2), 'application/json');
+    });
+    $('exportCsv').addEventListener('click', function () {
+      download('supplier-scout-' + prefs.datasetId + '.csv', '\uFEFF' + Csv.toCsv(Csv.exportRows(state.db.suppliers)), 'text/csv;charset=utf-8');
+    });
+    $('reset').addEventListener('click', function () {
+      removeStorage('state:' + prefs.datasetId);
+      loadState();
+      render();
+      $('ioStatus').textContent = t('resetDone');
+    });
+  }
+
+  var savedPrefs = readStorage('prefs');
+  if (savedPrefs && I18N[savedPrefs.lang]) prefs.lang = savedPrefs.lang;
+  if (savedPrefs && Sample.DATASETS[savedPrefs.datasetId]) prefs.datasetId = savedPrefs.datasetId;
+  loadState();
+  bind();
+  render();
+})();

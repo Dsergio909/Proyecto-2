@@ -1,0 +1,17 @@
+{
+  "_comment": "Fictional fixture shaped like Socrata /api/views/{id}.json metadata. Column names are illustrative, not a copy of the real dataset.",
+  "name": "SECOP II - Proveedores Registrados (fixture)",
+  "rowsUpdatedAt": 1790000000,
+  "columns": [
+    { "name": "Nombre", "fieldName": "nombre", "dataTypeName": "text" },
+    { "name": "NIT", "fieldName": "nit", "dataTypeName": "text" },
+    { "name": "Teléfono", "fieldName": "telefono", "dataTypeName": "text" },
+    { "name": "Correo", "fieldName": "correo", "dataTypeName": "text" },
+    { "name": "Municipio", "fieldName": "municipio", "dataTypeName": "text" },
+    { "name": "Departamento", "fieldName": "departamento", "dataTypeName": "text" },
+    { "name": "Descripción Categoría Principal", "fieldName": "descripcion_categoria_principal", "dataTypeName": "text" },
+    { "name": "Ubicación", "fieldName": "ubicacion", "dataTypeName": "point" },
+    { "name": "Es Pyme", "fieldName": "espyme", "dataTypeName": "text" },
+    { "name": ":id", "fieldName": ":id", "dataTypeName": "meta_data" }
+  ]
+}
